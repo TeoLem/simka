@@ -30,49 +30,6 @@ using namespace std;
 
 
 
-
-
-
-
-/*
-template<typename Filter> class SimkaPotaraBankFiltered : public BankDelegate
-{
-public:
-
-	Iterator<Sequence>* _it;
-
-	SimkaPotaraBankFiltered (IBank* ref, const Filter& filter, u_int64_t maxReads, size_t nbDatasets) : BankDelegate (ref), _filter(filter)  {
-		//_nbReadsPerDataset = nbReadsPerDataset;
-		_maxReads = maxReads;
-		_nbDatasets = nbDatasets;
-	}
-
-
-	~SimkaPotaraBankFiltered(){
-		delete _it;
-	}
-
-    Iterator<Sequence>* iterator ()
-    {
-
-        _it = _ref->iterator ();
-        //std::vector<Iterator<Sequence>*> iterators = it->getComposition();
-        return new SimkaInputIterator<Sequence, Filter> (_it, _nbDatasets, _maxReads, _filter);
-    	//return filterIt;
-
-    }
-
-private:
-
-	//vector<u_int64_t> _nbReadsPerDataset;
-    u_int64_t _maxReads;
-    Filter _filter;
-    u_int64_t _nbReadToProcess;
-    size_t _datasetId;
-    size_t _nbDatasets;
-};
-*/
-
 class SimkaCount : public Tool
 {
 public:
@@ -103,8 +60,6 @@ public:
 
     	//size_t datasetId =  getInput()->getInt(STR_ID);
     	size_t kmerSize =  getInput()->getInt(STR_KMER_SIZE);
-    	//cout << kmerSize << endl;
-
     	string outputDir =  getInput()->getStr("-out-tmp-simka");
     	string bankName =  getInput()->getStr("-bank-name");
     	size_t bankIndex =  getInput()->getInt("-bank-index");
@@ -120,35 +75,6 @@ public:
 
         Integer::apply<Functor,Parameter> (kmerSize, params);
 
-
-
-		//SimkaBankId* bank = new SimkaBankId(_banks, i);
-		//cout << config._nb_partitions << endl;
-		//KmerCountCompressor<span>* kmerCountCompressor = new KmerCountCompressor<span>(outputDir, config._nb_partitions, 1);
-
-		//SimkaCompProcessor<span>* processor = new SimkaCompProcessor<span>(kmerCountCompressor);
-		//vector<ICountProcessor<span>*> procs;
-		//procs.push_back(processor);
-
-		//algo.addProcessor(processor);
-
-		//algo.execute();
-
-		//delete kmerCountCompressor;
-		//itBanks[i]->
-
-
-        // We get a handle on the HDF5 storage object.
-        // Note that we use an auto pointer since the StorageFactory dynamically allocates an instance
-        //Storage* storage = StorageFactory(DSK::getStorageMode()).load (getInput()->getStr(STR_URI_FILE));
-        //LOCAL (storage);
-
-        //string kmerSizeStr = storage->getGroup("params").getProperty ("kmer_size");
-
-        //if (kmerSizeStr.empty())  { throw Exception ("unable to get the kmer size"); }
-
-        //size_t kmerSize = atoi (kmerSizeStr.c_str());
-
     }
 
 
@@ -157,7 +83,6 @@ public:
         Parameter (SimkaCount& tool, size_t kmerSize, string outputDir, string bankName, size_t minReadSize, double minReadShannonIndex, u_int64_t maxReads, size_t nbDatasets, size_t nbPartitions, CountNumber abundanceMin, CountNumber abundanceMax, size_t bankIndex) :
         	tool(tool), kmerSize(kmerSize), outputDir(outputDir), bankName(bankName), minReadSize(minReadSize), minReadShannonIndex(minReadShannonIndex), maxReads(maxReads), nbDatasets(nbDatasets), nbPartitions(nbPartitions), abundanceMin(abundanceMin), abundanceMax(abundanceMax), bankIndex(bankIndex)  {}
         SimkaCount& tool;
-        //size_t datasetId;
         size_t kmerSize;
         string outputDir;
         string bankName;
@@ -188,27 +113,6 @@ public:
 			IBank* bank = Bank::open(p.outputDir + "/input/" + p.bankName);
 			LOCAL(bank);
 
-			/*
-			u_int64_t nbSeqs = 1;
-	        IBank* sampleBank = new SimkaBankSample(bank, nbSeqs);
-			SortingCountAlgorithm<span> sortingCount (sampleBank, props);
-			SimkaNullProcessor<span>* proc = new SimkaNullProcessor<span>();
-			sortingCount.addProcessor (proc);
-			sortingCount.execute();
-			Configuration config = sortingCount.getConfig();
-			//_nbPartitions = _maxJobMerge;
-			config._nb_partitions = p.nbPartitions;
-
-			uint64_t memoryUsageCachedItems;
-			config._nb_cached_items_per_core_per_part = 1 << 8; // cache at least 256 items (128 here, then * 2 in the next while loop)
-			do
-			{
-				config._nb_cached_items_per_core_per_part *= 2;
-				memoryUsageCachedItems = 1LL * config._nb_cached_items_per_core_per_part *config._nb_partitions * config._nbCores * sizeof(Type);
-			}
-			while (memoryUsageCachedItems < config._max_memory * MBYTE / 10);
-			*/
-
 
 			vector<u_int64_t> nbKmerPerParts(p.nbPartitions, 0);
 			vector<u_int64_t> nbDistinctKmerPerParts(p.nbPartitions, 0);
@@ -227,24 +131,6 @@ public:
 					repartitor->load(storage->getGroup(""));
 				}
 
-				//config._abundanceUserNb = 1;
-				//config._abundance.clear();
-				//CountRange range(props->getInt(STR_KMER_ABUNDANCE_MIN), 100000);
-				//config._abundance.push_back(range);
-
-				/*
-				vector<size_t> cacheIndexes;
-				cacheIndexes.resize(p.nbPartitions);
-				vector<vector<Count> > caches;
-	        	caches.resize(p.nbPartitions);
-		    	for(size_t i=0; i<p.nbPartitions; i++){
-		    		caches[i].resize(NB_COUNT_CACHE);
-		    		cacheIndexes[i] = 0;
-		    	}
-				 */
-
-				//string outputDir = p.outputDir + "/solid/" + p.bankName;
-				//System::file().mkdir(outputDir, -1);
 				vector<Bag<Kmer_BankId_Count>* > bags;
 				vector<Bag<Kmer_BankId_Count>* > cachedBags;
 		    	for(size_t i=0; i<p.nbPartitions; i++){
@@ -259,22 +145,11 @@ public:
 
 				string tempDir = p.outputDir + "/temp/" + p.bankName;
 				System::file().mkdir(tempDir, -1);
-				//cout << i << endl;
-				//string outputDir = p.outputDir + "/comp_part" + to_string(p.datasetId) + "/";
-
-				//cout << "\tinput: " << p.outputDir + "/input/" + p.bankName << endl;
 
 				SimkaSequenceFilter sequenceFilter(p.minReadSize, p.minReadShannonIndex);
 				IBank* filteredBank = new SimkaPotaraBankFiltered<SimkaSequenceFilter>(bank, sequenceFilter, p.maxReads, p.nbDatasets);
-				// = new SimkaPotaraBankFiltered(bank)
 				LOCAL(filteredBank);
 				//LOCAL(bank);
-
-				//Storage* solidStorage = 0:
-				//string solidsName = p.outputDir + "/solid/" +  p.bankName + ".h5";
-				//bool autoDelete = false; // (solidsName == "none") || (solidsName == "null");
-				//solidStorage = StorageFactory(STORAGE_HDF5).create (solidsName, true, autoDelete);
-				//LOCAL(solidStorage);
 
 				SimkaCompressedProcessor<span>* proc = new SimkaCompressedProcessor<span>(cachedBags, nbKmerPerParts, nbDistinctKmerPerParts, chordNiPerParts, p.abundanceMin, p.abundanceMax, p.bankIndex);
 
@@ -287,7 +162,6 @@ public:
 					nbReads = miniKc._nbReads;
 				}
 				else{
-					//SimkaCompressedProcessor<span>* proc = new SimkaCompressedProcessor<span>(bags, caches, cacheIndexes, p.abundanceMin, p.abundanceMax);
 					std::vector<ICountProcessor<span>* > procs;
 					procs.push_back(proc);
 					SortingCountAlgorithm<span> algo (filteredBank, config, repartitor,
@@ -308,9 +182,6 @@ public:
 					nbKmers += nbKmerPerParts[i];
 					chord_N2 += chordNiPerParts[i];
 				}
-				//cout << nbDistinctKmers << endl;
-
-				//cout << "CHECK NB READS PER DATASET:  " << nbReads << endl;
 				outInfo.push_back(Stringify::format("%llu", nbReads));
 				outInfo.push_back(Stringify::format("%llu", nbDistinctKmers));
 				outInfo.push_back(Stringify::format("%llu", nbKmers));
@@ -326,13 +197,9 @@ public:
 				System::file().rmdir(tempDir);
 
 		    	for(size_t i=0; i<p.nbPartitions; i++){
-		    		//bags[i]->flush();
-		    		//cachedBags[i]->flush();
 		    		delete cachedBags[i];
-		    		//delete bags[i];
 		    	}
 
-		    	//delete proc;
 			}
 
 			string contents = "";
@@ -345,11 +212,7 @@ public:
 			delete nbKmerPerPartFile;
 
 
-			//cout << "heo" << endl;
-			//delete config;
-			//cout << "heo" << endl;
 			writeFinishSignal(p, outInfo);
-			//cout << "heo" << endl;
 		}
 
 		void writeFinishSignal(Parameter& p, const vector<string>& outInfo){
@@ -366,9 +229,6 @@ public:
 
 			delete file;
 		}
-
-
-
 
     };
 

@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 2.6)
 # The version number.
 ################################################################################
 SET (gatb-tool_VERSION_MAJOR 1)
-SET (gatb-tool_VERSION_MINOR 5)
+SET (gatb-tool_VERSION_MINOR 4)
 SET (gatb-tool_VERSION_PATCH 0)
 
 IF (DEFINED MAJOR)
@@ -60,7 +60,7 @@ endif()
 #       - from project source
 #       - from GATB-CORE source
 #       - from simka source
-include_directories (include ${gatb-core-includes} ${PROJECT_SOURCE_DIR}/src/core ${PROJECT_SOURCE_DIR}/src/minikc ${PROJECT_SOURCE_DIR}/src)
+include_directories (include ${gatb-core-includes} ${PROJECT_SOURCE_DIR}/src/core ${PROJECT_SOURCE_DIR}/src/minikc ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/thirdparty/nlohmann ${PROJECT_SOURCE_DIR}/thirdparty/gzstream)
 
 # we generate one file per template specialization
 FOREACH (KSIZE ${gatb-core-klist})
@@ -87,9 +87,10 @@ target_link_libraries (simkaCount  ${gatb-core-libraries})
 
 add_executable        (simkaMerge  src/SimkaMerge.cpp ${ProjectFiles})
 target_link_libraries (simkaMerge  ${gatb-core-libraries})
-
-add_executable        (simkaMin  src/simkaMin/SimkaMin.cpp ${SimkaMinFiles})
-target_link_libraries (simkaMin  ${gatb-core-libraries})
+target_link_libraries (simkaMerge  libgzstream.a)
+target_link_libraries (simkaMerge  -lz -lgzstream)
+#add_executable        (simkaMin  src/simkaMin/SimkaMin.cpp ${SimkaMinFiles})
+#target_link_libraries (simkaMin  ${gatb-core-libraries})
 
 ################################################################################
 #  PACKAGING
@@ -122,7 +123,6 @@ SET (CPACK_SOURCE_IGNORE_FILES
 # For creating the BINARY package we include the files we want
 INSTALL (DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin       DESTINATION .)
 INSTALL (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/example   DESTINATION .)
-INSTALL (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/simkaMin   DESTINATION .)
 INSTALL (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scripts   DESTINATION . FILES_MATCHING REGEX ".*\\.(py|r)$"  PATTERN "jenkins" EXCLUDE)
 INSTALL (FILES     ${CMAKE_CURRENT_SOURCE_DIR}/README.md DESTINATION .)
 INSTALL (FILES     ${CMAKE_CURRENT_SOURCE_DIR}/LICENSE   DESTINATION .)

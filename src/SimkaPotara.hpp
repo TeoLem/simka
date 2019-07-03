@@ -176,23 +176,6 @@ public:
 			}
     	}
 
-    	//number = _maxReads;
-    	//totalSize = (_totalSizeRef*_nbReadToProcess)/_numberRef;
-    	//maxSize = _maxSizeRef;
-
-    	//cout << number2 << endl;
-
-    	//u_int64_t readSize = totalSize2 / number2;
-    	//cout << "lal:" << number2 << endl;
-    	//number = _maxReads;
-
-    	//number = _nbReadToProcess;
-    	//totalSize = _nbReadToProcess*readSize;
-    	//maxSize = readSize;
-
-    	//cout << number << endl;
-    	//cout << totalSize << endl;
-    	//cout << maxSize << endl;
     }
 
     u_int64_t _maxReads;
@@ -212,33 +195,8 @@ public:
 
 		_isClusterMode = false;
 
-		//cout << "lala" << endl;
-		//cout << _execDir << endl;
-
 		_execDir = System::file().getRealPath(execFilename);
 		_execDir = System::file().getDirectory(_execDir) + "/";
-
-		//_options = options;
-
-		//_inputFilename = _options->getStr(STR_URI_INPUT);
-		//_outputDir = _options->getStr(STR_URI_OUTPUT);
-		//_outputDirTemp = _options->getStr(STR_URI_OUTPUT_TMP);
-
-		//_maxNbReads = _options->getInt(STR_SIMKA_MAX_READS);
-		//_maxJobCount = _options->getInt(STR_SIMKA_NB_JOB_COUNT);
-		//_maxJobMerge = _options->getInt(STR_SIMKA_NB_JOB_MERGE);
-		//_jobCountFilename = _options->getStr(STR_SIMKA_JOB_COUNT_FILENAME);
-		//_jobMergeFilename = _options->getStr(STR_SIMKA_JOB_MERGE_FILENAME);
-		//_jobCountCommand = _options->getStr(STR_SIMKA_JOB_COUNT_COMMAND);
-		//_jobMergeCommand = _options->getStr(STR_SIMKA_JOB_MERGE_COMMAND);
-
-
-		//string solidFilename = _outputDir + "/solid/" +  p.bankName + suffix + ".h5";
-
-		//cout << "SimkaFusion constructor       " << _outputDirTemp << endl;
-
-
-
 
 	}
 
@@ -301,18 +259,6 @@ public:
 			system(command.c_str());
 			command = "rm " + this->_outputDirTemp + "/datasetIds";
 			system(command.c_str());
-			//cout << command << endl;
-			//System::file().rmdir(this->_outputDirTemp);
-
-			//System::file().mkdir(this->_outputDirTemp + "/solid/", -1);
-			//System::file().mkdir(this->_outputDirTemp + "/temp/", -1);
-			//System::file().mkdir(this->_outputDirTemp + "/log/", -1);
-			//System::file().mkdir(this->_outputDirTemp + "/count_synchro/", -1);
-			//System::file().mkdir(this->_outputDirTemp + "/merge_synchro/", -1);
-			//System::file().mkdir(this->_outputDirTemp + "/stats/", -1);
-			//System::file().mkdir(this->_outputDirTemp + "/job_count/", -1);
-			//System::file().mkdir(this->_outputDirTemp + "/job_merge/", -1);
-			//System::file().mkdir(this->_outputDirTemp + "/kmercount_per_partition/", -1);
 		}
 	}
 
@@ -328,7 +274,6 @@ public:
 			_jobMergeCommand = this->_options->getStr(STR_SIMKA_JOB_MERGE_COMMAND);
 
 			if(! this->_options->get(STR_SIMKA_NB_JOB_COUNT) || this->_options->get(STR_SIMKA_NB_JOB_MERGE)){
-				//cout << endl;
 				cout << "Cluster mode enable. Be sure to set correctly the following arguments if you have any job submission constraints:" << endl;
 				cout << "\t" << STR_SIMKA_NB_JOB_COUNT << " : the maximum number of simultaneous couting" << endl; //job (each job will use up to " << STR_NB_CORES << " cores and " << STR_MAX_MEMORY << " MB memory)" << endl;
 				cout << "\t" << STR_SIMKA_NB_JOB_MERGE << " : the maximum number of simultaneous merging job" << endl; // (each job will use up to 1 core and " << STR_MAX_MEMORY << " MB memory)" << endl;
@@ -363,50 +308,6 @@ public:
 		else{
 			_isClusterMode = false;
 		}
-
-
-
-
-		//_isClusterMode = true;
-
-		//if(this->_options->get(STR_SIMKA_CLUSTER_MODE)){
-
-			//cout << "cluster mode activated" << endl;
-			//cout << "\t-max-memory = memory per job" << endl;
-			//cout << "\t-nb-cores = cores per job" << endl;
-			//cout << endl;
-
-
-			//if(_isClusterMode)
-			//	_maxJobMerge = max((int)_maxJobMerge, (int)30);
-			//else{
-			//	_maxJobMerge = max((int)_maxJobMerge, (int)30);
-			//}
-
-
-
-		//}
-
-
-		/*
-		_maxJobMerge = maxCores-1;
-		size_t maxCoreCount = maxCores-1;
-
-		size_t nbCoresCount = min(maxCoreCount, this->_nbCores);
-
-		u_int64_t minMemory = 2000;
-		size_t maxJobCountTemp = this->_maxMemory/minMemory;
-		_maxJobCount = min(nbCoresCount, maxJobCountTemp);
-		_memoryPerJob = this->_maxMemory / _maxJobCount;
-		_coresPerJob = ceil(nbCoresCount / (float)_maxJobCount);
-
-
-		cout << "Nb jobs count in parallel: " << _maxJobCount << endl;
-		cout << "\tCores per jobs: " << _coresPerJob << endl;
-		cout << "\tMemory per jobs: " << _memoryPerJob << endl;
-		cout << "Nb jobs merge in parallel: " << _maxJobMerge << endl;
-		cout << endl;
-		*/
 	}
 
 
@@ -419,8 +320,6 @@ public:
 	}
 
 	void layoutInputFilename(){
-
-		//SimkaAlgorithm<span>::layoutInputFilename();
 
 		string datasetIdFilename = this->_outputDirTemp + "/" + "datasetIds";
 		IFile* datasetIdFile = System::file().newFile(datasetIdFilename, "wb");
@@ -437,24 +336,9 @@ public:
 
 	}
 
-
-
-
 	void createDirs(){
 
-		/*
-		string suffix = "";
-		suffix += "m" + _options->getStr(STR_SIMKA_MIN_READ_SIZE);
-		suffix += "_s" + _options->getStr(STR_SIMKA_MIN_READ_SHANNON_INDEX);
-		suffix += "_n" + SimkaAlgorithm<>::toString(_maxNbReads);
-		suffix += "_p" + SimkaAlgorithm<>::toString(_nbAskedPartitions);*/
-		//_outputDirTemp = _outputDirTemp; // + "/" + suffix + "/";
-
-
-
-		//System::file().mkdir(_outputDirTemp, -1);
 		System::file().mkdir(this->_outputDirTemp + "/solid/", -1);
-		//System::file().mkdir(this->_outputDirTemp + "/solid/merged/", -1);
 		System::file().mkdir(this->_outputDirTemp + "/temp/", -1);
 		System::file().mkdir(this->_outputDirTemp + "/log/", -1);
 		System::file().mkdir(this->_outputDirTemp + "/count_synchro/", -1);
@@ -532,24 +416,6 @@ public:
 		cout << endl;
 
 
-
-		//_coresPerJob = this->_nbCores;
-		//_memoryPerJob = this->_maxMemory;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 		string filename = this->_outputDirTemp + "/" + "config.h5";
 		if(System::file().doesExist(filename)){
 
@@ -614,29 +480,9 @@ public:
     		}
 
     		//delete simkaBank;
-/*
-    		u_int64_t nbReads = bank->estimateNbItems();
-    		nbReads /= _nbBankPerDataset[i];
-    		totalReads += nbReads;
-    		if(nbReads < minReads){
-    			minReads = nbReads;
-    			//_smallerBankId = _bankNames[i];
-    		}
-    		if(nbReads > maxReads){
-    			maxReads = nbReads;
-    			_largerBankId = _bankNames[i];
-    		}*/
-
     	}
-
-
-    	//maxPart += 2;
-    	//for(size_t i=0; i<banksToDelete.size(); i++)
-    	//	delete banksToDelete[i];
-
-
-
-		this->_options->setInt(STR_MAX_MEMORY, _memoryPerJob);
+		
+        this->_options->setInt(STR_MAX_MEMORY, _memoryPerJob);
 
     	IBank* inputbank = Bank::open(this->_banksInputFilename);
     	LOCAL(inputbank);
@@ -644,24 +490,7 @@ public:
 		IBank* bank = Bank::open(this->_outputDirTemp + "/input/" + this->_bankNames[chosenBankId]);
 		LOCAL(bank);
 
-		//IBank* bank = Bank::open(_outputDirTemp + "/input/" + _bankNames[0]);
-		//LOCAL(inputbank);
-
-        //bank->finalize();
-
-		//u_int64_t nbSeqs = 1;
-        //IBank* sampleBank = new SimkaBankSample(bank, nbSeqs);
-		//SortingCountAlgorithm<span> sortingCount (sampleBank, this->_options);
-
-		//SimkaNullProcessor<span>* proc = new SimkaNullProcessor<span>();
-
-		//sortingCount.addProcessor (proc);
-
-		// We launch the algorithm
-		//sortingCount.execute();
-
-		//Configuration config = sortingCount.getConfig();
-
+		
 		ConfigurationAlgorithm<span> testConfig1(inputbank, this->_options);
 		testConfig1.execute();
 		Configuration config1 = testConfig1.getConfiguration();
@@ -670,17 +499,6 @@ public:
 		ConfigurationAlgorithm<span> testConfig2(bank, this->_options);
 		testConfig2.execute();
 		Configuration config2 = testConfig2.getConfiguration();
-
-
-        //IBank* inputbank = Bank::open(this->_banksInputFilename);
-		//LOCAL(inputbank);
-		//IBank* sampleBank2 = new SimkaBankSample(inputbank, nbSeqs);
-		//SortingCountAlgorithm<span> sortingCount2 (sampleBank2, this->_options);
-		//SimkaNullProcessor<span>* proc2 = new SimkaNullProcessor<span>();
-		//sortingCount2.addProcessor (proc2);
-		//sortingCount2.execute();
-		//Configuration config2 = sortingCount2.getConfig();
-		//cout << config2._nb_partitions << endl;
 
 
 		_nbPartitions = max((size_t)maxPart, (size_t)_maxJobMerge);
@@ -695,7 +513,6 @@ public:
         RepartitorAlgorithm<span> repart (inputbank, storage->getGroup(""), config1);
         repart.execute ();
 
-
 		uint64_t memoryUsageCachedItems;
 		config2._nb_cached_items_per_core_per_part = 1 << 8; // cache at least 256 items (128 here, then * 2 in the next while loop)
 		do
@@ -704,47 +521,9 @@ public:
 			memoryUsageCachedItems = 1LL * config2._nb_cached_items_per_core_per_part *config2._nb_partitions * config2._nbCores * sizeof(Type);
 		}
 		while (memoryUsageCachedItems < config2._max_memory * MBYTE / 10);
-		/*
-		if(_isClusterMode){
-			//config._nb_cached_items_per_core_per_part = 100000;
-			_nbPartitions = _maxJobMerge;
-			config._nb_partitions = _nbPartitions;
-
-		    uint64_t memoryUsageCachedItems;
-		    config._nb_cached_items_per_core_per_part = 1 << 8; // cache at least 256 items (128 here, then * 2 in the next while loop)
-		    do
-		    {
-		        config._nb_cached_items_per_core_per_part *= 2;
-		        memoryUsageCachedItems = 1LL * config._nb_cached_items_per_core_per_part *config._nb_partitions * config._nbCores * sizeof(Type);
-		    }
-		    while (memoryUsageCachedItems < config._max_memory * MBYTE / 10);
-
-		    //cout << config._nb_cached_items_per_core_per_part << endl;
-		}
-		else{
-			_nbPartitions = config._nb_partitions;
-		}*/
-
-		//IBank* inputbank = Bank::open(this->_banksInputFilename);
-		//LOCAL(inputbank);
-		//ConfigurationAlgorithm<span> inputconfig(inputbank, this->_options);
-		//inputconfig.execute();
-        //RepartitorAlgorithm<span> repart (inputbank, storage->getGroup(""), config);
-        //repart.execute ();
-        //setRepartitor (new Repartitor(storage->getGroup("minimizers")));
-		//SortingCountAlgorithm<span> sortingCount (sampleBank, _options);
-
-
-
-
+		
 		config2.save(storage->getGroup(""));
-		//sortingCount.getRepartitor()->save(storage->getGroup(""));
-		//delete sampleBank;
-
-	    //setStorage (storage);
-
-		//delete storage;
-		//sampleBank->forget();
+		
 	}
 
 	void removeMergeSynchro(){
@@ -788,7 +567,6 @@ public:
 		cout << endl << "Counting k-mers... (log files are " + this->_outputDirTemp + "/log/count_*)" << endl;
 
 	    for (size_t i=0; i<_nbPartitions; i++){
-	    	//System::file().mkdir(this->_outputDirTemp + "/solid/merged/part_" + Stringify::format("%i", i), -1);
 	    	System::file().mkdir(this->_outputDirTemp + "/solid/part_" + Stringify::format("%i", i), -1);
 	    }
 
@@ -813,7 +591,6 @@ public:
 				cout << "\t" << this->_bankNames[i] << " already counted (remove file " << finishFilename << " to count again)" << endl;
 				continue;
 			}
-			//else{
 
 			string tempDir = this->_outputDirTemp + "/temp/" + this->_bankNames[i];
 
@@ -827,13 +604,12 @@ public:
 			command += " " + string(STR_MAX_MEMORY) + " " + SimkaAlgorithm<>::toString(_memoryPerJob);
 			command += " " + string(STR_NB_CORES) + " " + SimkaAlgorithm<>::toString(_coresPerJob);
 			command += " " + string(STR_URI_INPUT) + " dummy ";
-			command += " " + string(STR_KMER_ABUNDANCE_MIN) + " " + SimkaAlgorithm<>::toString(this->_abundanceThreshold.first);
+            command += " " + string(STR_KMER_ABUNDANCE_MIN) + " " + SimkaAlgorithm<>::toString(this->_abundanceThreshold.first);
 			command += " " + string(STR_KMER_ABUNDANCE_MAX) + " " + SimkaAlgorithm<>::toString(this->_abundanceThreshold.second);
 			command += " " + string(STR_SIMKA_MIN_READ_SIZE) + " " + SimkaAlgorithm<>::toString(this->_minReadSize);
 			command += " " + string(STR_SIMKA_MIN_READ_SHANNON_INDEX) + " " + Stringify::format("%f", this->_minReadShannonIndex);
 			command += " " + string(STR_SIMKA_MAX_READS) + " " + SimkaAlgorithm<>::toString(this->_maxNbReads);
 			command += " -nb-partitions " + SimkaAlgorithm<>::toString(_nbPartitions);
-			//command += " -verbose " + Stringify::format("%d", this->_options->getInt(STR_VERBOSE));
 			command += " >> " + logFilename + " 2>&1";
 
 			filenameQueue.push_back(this->_bankNames[i]);
@@ -843,15 +619,7 @@ public:
 			str += "\t" + command + "\n\n\n";
 			system(("echo \"" + str + "\" > " + logFilename).c_str());
 
-			//cout << "Counting dataset " << i << endl;
-			//cout << "\t" << command << endl;
-
 			removeMergeSynchro();
-
-
-
-			//_progress->inc(1);
-			//nanosleep((const struct timespec[]){{0, 10000000L}}, NULL);
 
 
 			if(_isClusterMode){
@@ -875,7 +643,6 @@ public:
 
 
 			nbJobs += 1;
-			//cout << "job started" << endl;
 
 			if(nbJobs >= _maxJobCount){
 				while(true){
@@ -945,10 +712,6 @@ public:
 
 	void merge(){
 
-
-
-
-
 		cout << endl << "Merging k-mer counts and computing distances... (log files are " + this->_outputDirTemp + "/log/merge_*)" << endl;
 
 		_progress = new ProgressSynchro (
@@ -974,12 +737,6 @@ public:
 				cout << "\t" << datasetId << " already merged (remove file " << finishFilename << " to merge again)" << endl;
 			}
 			else{
-				//if(System::file().doesExist(finishFilename)){
-				//	System::file().remove(finishFilename);
-				//	cout << "\t" << _bankNames[i] << " already  (remove file " << finishFilename << " to count again)" << endl;
-				//}
-				//else{
-
 				filenameQueue.push_back(datasetId);
 
 				string command = "nohup " + _execDir + "/simkaMerge ";
@@ -991,16 +748,10 @@ public:
 				command += " " + string(STR_NB_CORES) + " " + SimkaAlgorithm<>::toString(_coresPerMergeJob);
 				command += " " + string(STR_SIMKA_MIN_KMER_SHANNON_INDEX) + " " + Stringify::format("%f", this->_minKmerShannonIndex);
 				command += " -verbose " + Stringify::format("%d", this->_options->getInt(STR_VERBOSE));
+                command += " -matrix " + this->_output_m;
 				if(this->_computeSimpleDistances) command += " " + string(STR_SIMKA_COMPUTE_ALL_SIMPLE_DISTANCES);
 				if(this->_computeComplexDistances) command += " " + string(STR_SIMKA_COMPUTE_ALL_COMPLEX_DISTANCES);
 				command += " >> " + logFilename + " 2>&1";
-				//SimkaDistanceParam distanceParams(this->_options);
-				//if(distanceParams._computeBrayCurtis) command += " " + STR_SIMKA_DISTANCE_BRAYCURTIS + " ";
-				//if(distanceParams._computeCanberra) command += " " + STR_SIMKA_DISTANCE_CANBERRA + " ";
-				//if(distanceParams._computeChord) command += " " + STR_SIMKA_DISTANCE_CHORD + " ";
-				//if(distanceParams._computeHellinger) command += " " + STR_SIMKA_DISTANCE_HELLINGER + " ";
-				//if(distanceParams._computeKulczynski) command += " " + STR_SIMKA_DISTANCE_KULCZYNSKI + " ";
-
 
 				string str = "Merging partition " + SimkaAlgorithm<>::toString(i) + "\n";
 				str += "\t" + command + "\n\n\n";
@@ -1060,8 +811,6 @@ public:
 			}
 	    }
 
-	    //cout << nbJobs << endl;
-
 	    while(nbJobs > 0){
 			bool isJobAvailbale = false;
 
@@ -1088,95 +837,37 @@ public:
 			}
 		}
 
-
-	    //cout << nbJobs << endl;
-
 	    _progress->finish();
 	    delete _progress;
 	}
 
-	/*
-	void getCountInfo(SimkaStatistics& mainStats){
-
-    	for(size_t i=0; i<this->_nbBanks; i++){
-    		string name = this->_bankNames[i];
-    		string countFilename = this->_outputDirTemp + "/count_synchro/" +  name + ".ok";
-
-    		string line;
-	    	ifstream file(countFilename.c_str());
-	    	vector<string> lines;
-			while(getline(file, line)){
-				if(line == "") continue;
-				lines.push_back(line);
-			}
-			file.close();
-
-			u_int64_t nbReads = strtoull(lines[0].c_str(), NULL, 10) ;
-			mainStats._datasetNbReads[i] = nbReads;
-			mainStats._nbSolidDistinctKmersPerBank[i] = strtoull(lines[1].c_str(), NULL, 10);
-			//cout << mainStats._nbSolidDistinctKmersPerBank[i] << endl;
-			mainStats._nbSolidKmersPerBank[i] = strtoull(lines[2].c_str(), NULL, 10);
-			mainStats._chord_sqrt_N2[i] = sqrt(strtoull(lines[3].c_str(), NULL, 10));
-    	}
-
-	}*/
-
 	void stats(){
 		cout << endl << "Computing stats..." << endl;
-		//cout << this->_nbBanks << endl;
 
-		//u_int64_t nbKmers = 0;
-
-		//SimkaDistanceParam distanceParams(this->_options);
 		SimkaStatistics mainStats(this->_nbBanks, this->_computeSimpleDistances, this->_computeComplexDistances, this->_outputDirTemp, this->_bankNames);
 
 		for(size_t i=0; i<_nbPartitions; i++){
 
 			string filename = this->_outputDirTemp + "/stats/part_" + SimkaAlgorithm<>::toString(i) + ".gz";
-			//Storage* storage = StorageFactory(STORAGE_HDF5).load (this->_outputDirTemp + "/stats/part_" + SimkaAlgorithm<>::toString(i) + ".stats");
-			//LOCAL (storage);
 
 			SimkaStatistics stats(this->_nbBanks, this->_computeSimpleDistances, this->_computeComplexDistances, this->_outputDirTemp, this->_bankNames);
 			stats.load(filename);
 
-			//cout << stats._nbDistinctKmers << "   " << stats._nbKmers << endl;
 			mainStats += stats;
 
-			//nbKmers += stats._nbKmers;
 		}
 
-		//cout << "Nb kmers: " << nbKmers << endl;
-
-		//getCountInfo(mainStats);
-		//for(size_t i=0; i<this->_nbBanks; i++){
-		//	cout << mainStats._nbSolidDistinctKmersPerBank[i] << endl;
-		//}
-		mainStats.outputMatrix(this->_outputDir, this->_bankNames);
+		//mainStats.outputMatrix(this->_outputDir, this->_bankNames);
 
 #//ifdef PRINT_STATS
 		if(this->_options->getInt(STR_VERBOSE) != 0) mainStats.print();
 #//endif
 	}
 
-
-	//u_int64_t _maxMemory;
-	//size_t _nbCores;
 	size_t _memoryPerJob;
 	size_t _coresPerJob;
 	size_t _coresPerMergeJob;
-
-	//IBank* _banks;
-	//IProperties* _options;
-	//string _inputFilename;
-	//vector<string> _bankNames;
-	//vector<size_t> _nbBankPerDataset;
     size_t _nbPartitions;
-    //size_t _nbBanks;
-	//vector<u_int64_t> _nbReadsPerDataset;
-    //string _banksInputFilename;
-    //vector<string> _tempFilenamesToDelete;
-    //u_int64_t _maxNbReads;
-	//IBank* _sampleBank;
 
     string _execDir;
     bool _isClusterMode;
@@ -1186,18 +877,12 @@ public:
 	string _jobMergeFilename;
 	string _jobCountCommand;
 	string _jobMergeCommand;
-	//u_int64_t _nbAskedPartitions;
 
 	string _jobCountContents;
 	string _jobMergeContents;
 
 	IteratorListener* _progress;
 };
-
-
-
-
-
 
 
 

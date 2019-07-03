@@ -20,137 +20,24 @@
 
 #include "SimkaAlgorithm.hpp"
 
-static const char* strProgressPartitionning = "Simka: Step 1: partitioning    ";
-static const char* strProgressCounting =      "Simka: Step 2: counting kmers  ";
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 template<size_t span>
 SimkaAlgorithm<span>::SimkaAlgorithm(IProperties* options)
 :
 Algorithm("simka", -1, options)
-//_progress (0), _tmpPartitionsStorage(0), _tmpPartitions(0)
 {
-
-
 	_options = options;
 	_stats = 0;
-	//_simkaDistance = 0;
 	_banks = 0;
-	//_processor = 0;
-
-
-
-
-	//string maxDisk = "";
-	//if(_options->get(STR_MAX_DISK)){
-	//	maxDisk = _options->getStr(STR_MAX_DISK);
-	//	cout << maxDisk << endl;
-	//}
-	//_multiStorage = new MultiDiskStorage<Type>(_options->getStr(STR_URI_OUTPUT_DIR), _options->getStr(STR_MAX_DISK));
-
-	   // vector<string> _tempDirMaxDisk
 
 	_totalKmers = 0;
-	/*
-	if(_options->getInt(STR_VERBOSE) != 0){
-		cout << "Filter options" << endl;
-		cout << "\tMax reads per dataset:  " <<  _maxNbReads << endl;
-		cout << "\tMin read size:  " <<  _minReadSize << endl;
-		cout << "\tMin Shannon index:  " <<  _minShannonIndex << endl;
-	}*/
-	//if(_maxNbReads == 0)
-	//	_maxNbReads = -1;
-
-	//cout << _maxNbReads << endl;
-	//cout << _soliditySingle << endl;
-	/*
-	string solidKindStr = _options->getStr(STR_SOLIDITY_KIND);
-	if(solidKindStr == "range"){
-		_solidKind = SIMKA_SOLID_KIND::RANGE;
-	}
-	else if(solidKindStr == "sum"){
-		_solidKind = SIMKA_SOLID_KIND::SUM;
-	}
-
-	cout << solidKindStr << " " << solidKindStr << endl;*/
-	//_kmerSize = _options->get(STR_KMER_SIZE) ? _options->getInt(STR_KMER_SIZE) : 31;
-	//_abundanceMin = _options->get(STR_KMER_ABUNDANCE_MIN) ? _options->getInt(STR_KMER_ABUNDANCE_MIN) : 0;
-	//_maxMemory = props->get(STR_MAX_MEMORY) ? props->getInt(STR_MAX_MEMORY) : 2000;
-	//_outputTempDir = props->get(STR_URI_OUTPUT_DIR) ? props->getStr(STR_URI_OUTPUT_DIR) : System::file().getDirectory(_inputFilename);
-	//_outputFilename = props->get(STR_URI_OUTPUT) ? props->getStr(STR_URI_OUTPUT) : System::file().getDirectory(_inputFilename) + "/" + System::file().getBaseName(_inputFilename) + "_output.fasta";
-	//_nbCores = getInput()->getInt(STR_NB_CORES);
-
-	//cout << "Input filename: " << _inputFilename << endl;
-	//cout << "Kmer size: " << _kmerSize << endl;
-	//cout << "Abundance min: " << _abundanceMin << endl;
-	//cout << "Max memory: " << _maxMemory << endl;
-	//cout << "Output temp dir: " << _outputTempDir << endl;
-	//cout << "Output filename: " << _outputFilename << endl;
-
-
-	//_banksInputFilename = _inputFilename + "_dsk_dataset_temp__";
-
-
 }
 
 template<size_t span>
-SimkaAlgorithm<span>::~SimkaAlgorithm() {
-}
-
-
+SimkaAlgorithm<span>::~SimkaAlgorithm() { }
 
 template<size_t span>
-void SimkaAlgorithm<span>::execute() {
-
-	/*
-	if(!setup()) return;
-	if(!isInputValid()) return;
-
-	createBank();
-
-	count();
-
-
-	outputMatrix();
-	//outputHeatmap();
-
-	if(_options->getInt(STR_VERBOSE) != 0){
-		_stats->print();
-		print();
-	}
-
-	clear();*/
-}
+void SimkaAlgorithm<span>::execute() { }
 
 
 template<size_t span>
@@ -186,12 +73,13 @@ void SimkaAlgorithm<span>::parseArgs() {
 	_kmerSize = _options->getInt(STR_KMER_SIZE);
 	_abundanceThreshold.first = _options->getInt(STR_KMER_ABUNDANCE_MIN);
 	_abundanceThreshold.second = min((u_int64_t)_options->getInt(STR_KMER_ABUNDANCE_MAX), (u_int64_t)(999999999));
+    
+    //TEO
+    _output_m = _options->getStr("-matrix");
+    _pipe = _options->get("-pipe");
+    _json_path = _options->getStr("-groups");
 
-	//cout << _options->getInt(STR_KMER_ABUNDANCE_MAX) << endl;
-	//cout << _abundanceThreshold.second << endl;
-	_soliditySingle = _options->get(STR_SIMKA_SOLIDITY_PER_DATASET);
-	//_nbMinimizers = _options->getInt(STR_KMER_PER_READ);
-	//_maxDisk = getInput()->getInt(STR_MAX_DISK);
+    _soliditySingle = _options->get(STR_SIMKA_SOLIDITY_PER_DATASET);
 
 	//read filter
 	_maxNbReads = _options->getInt(STR_SIMKA_MAX_READS);
@@ -269,10 +157,8 @@ void SimkaAlgorithm<span>::layoutInputFilename(){
 		line.erase(std::remove(line.begin(),line.end(),' '),line.end());
 		if(line == "") continue;
 
-		//cout << line << endl;
 		lineIdDatasets.clear();
 		linepartPairedDatasets.clear();
-		//vector<string> filenames;
 
 		stringstream lineStream(line);
 		while(getline(lineStream, linePart, ':')){
@@ -289,7 +175,6 @@ void SimkaAlgorithm<span>::layoutInputFilename(){
 
 		string subBankFilename = inputDir + bankId;
 		IFile* subBankFile = System::file().newFile(subBankFilename, "wb");
-		//cout << subBankFile->getPath() << endl;
 		string subBankContents = "";
 		_nbBankPerDataset.push_back(linepartPairedDatasets.size());
 
@@ -301,7 +186,6 @@ void SimkaAlgorithm<span>::layoutInputFilename(){
 			stringstream lineDatasetsStream(lineDatasets);
 			while(getline(lineDatasetsStream, linePart, ',')){
 				linepartDatasets.push_back(linePart);
-				//cout << "\t" << linePart << endl;
 			}
 
 			//bankFileContents += linepartDatasets[0] + "\n";
@@ -378,10 +262,6 @@ void SimkaAlgorithm<span>::computeMaxReads(){
 
 	string inputDir = _outputDirTemp + "/input/";
 
-	//if(_maxNbReads != 0){
-	//	return;
-	//}
-
 	if(_maxNbReads == 0){
 		if(_options->getInt(STR_VERBOSE) != 0)
 			cout << "-maxNbReads is not defined. Simka will estimating it..." << endl;
@@ -444,103 +324,6 @@ void SimkaAlgorithm<span>::computeMaxReads(){
 
 }
 
-/*
-
-template<size_t span>
-void SimkaAlgorithm<span>::layoutInputFilename(){
-
-	if(_options->getInt(STR_VERBOSE) != 0){
-		cout << endl << "Creating input" << endl;
-	}
-
-	_banksInputFilename = _inputFilename + "_dsk_dataset_temp__";
-	ifstream inputFile(_inputFilename.c_str());
-	IFile* bankFile = System::file().newFile(_banksInputFilename, "wb");
-
-	string line;
-	string linePart;
-	vector<string> linePartList;
-
-	string bankFileContents = "";
-
-	u_int64_t lineIndex = 0;
-
-	while(getline(inputFile, line)){
-
-		if(line == "") continue;
-
-		stringstream lineStream(line);
-		linePartList.clear();
-		//vector<string> filenames;
-
-		while(getline(lineStream, linePart, ' ')){
-
-			if(linePart != ""){
-				linePartList.push_back(linePart);
-			}
-		}
-
-
-
-		string bankId = linePartList[0];
-		_bankNames.push_back(bankId);
-
-
-		 //ID and one filename
-		if(linePartList.size() == 2){
-			bankFileContents += linePartList[1] + "\n";
-			_nbBankPerDataset.push_back(1);
-		}
-		//ID and list of filename (paired files for example)
-		else{
-			char buffer[200];
-			snprintf(buffer,200,"%llu", lineIndex);
-			string subBankFilename = _banksInputFilename + "_" + string(buffer);
-			_tempFilenamesToDelete.push_back(subBankFilename);
-			IFile* subBankFile = System::file().newFile(subBankFilename, "wb");
-			string subBankContents = "";
-
-			for(size_t i=1; i<linePartList.size(); i++){
-				subBankContents += linePartList[i] + "\n";
-			}
-			subBankContents.erase(subBankContents.size()-1);
-			//subBankContents.pop_back(); // "remove last /n
-			subBankFile->fwrite(subBankContents.c_str(), subBankContents.size(), 1);
-			subBankFile->flush();
-			delete subBankFile;
-
-			bankFileContents += subBankFilename + "\n";
-			_nbBankPerDataset.push_back(linePartList.size() - 1); //linePartList.size() - 1 = nb sub banks
-			//_nbReadsPerDataset.push_back(ceil(_maxNbReads / (float)()));
-		}
-
-		lineIndex += 1;
-	}
-
-	bankFileContents.erase(bankFileContents.size()-1);
-	//bankFileContents.pop_back(); // "remove last /n
-
-	bankFile->fwrite(bankFileContents.c_str(), bankFileContents.size(), 1);
-
-	inputFile.close();
-	//delete inputFile;
-	bankFile->flush();
-	delete bankFile;
-
-	//for(int i=0; i<_nbBanksOfDataset.size(); i++){
-	//	cout << i << "   "  << _nbBanksOfDataset[i] << endl;
-	//}
-
-	if(_options->getInt(STR_VERBOSE) != 0){
-		cout << "\tNb input datasets: " << _bankNames.size() << endl;
-	}
-
-	cout << endl;
-
-
-}*/
-
-
 template<size_t span>
 void SimkaAlgorithm<span>::createBank(){
 
@@ -553,70 +336,24 @@ void SimkaAlgorithm<span>::createBank(){
 }
 
 template<size_t span>
-void SimkaAlgorithm<span>::count(){
+void SimkaAlgorithm<span>::count() { }
 
-	/*
-	//SimkaDistanceParam distanceParams(_options);
-
-	_stats = new SimkaStatistics(_nbBanks, _computeSimpleDistances, _computeComplexDistances, _outputDirTemp, _bankNames);
-
-	SortingCountAlgorithm<span> sortingCount (_banks, _options);
-
-	// We create a custom count processor and give it to the sorting count algorithm
-	vector<u_int64_t> dummyVec;
-	_processor = new SimkaCountProcessor<span> (*_stats, _nbBanks, _kmerSize, _abundanceThreshold, _solidKind, _soliditySingle, _minKmerShannonIndex);
-	_processor->use();
-	sortingCount.addProcessor (_processor);
-
-	// We launch the algorithm
-	sortingCount.execute();
-	*/
-
-}
-
-
-
-
-
-
-
-
+//template<size_t span>
+//void SimkaAlgorithm<span>::outputMatrix() { _stats->outputMatrix(_outputDir, _bankNames); }
 
 template<size_t span>
-void SimkaAlgorithm<span>::outputMatrix(){
-	_stats->outputMatrix(_outputDir, _bankNames);
-}
-
-
-
-
-template<size_t span>
-void SimkaAlgorithm<span>::print(){
-
-	cout << "Output folder:   " << _outputDir << endl;
-
-
-
-}
-
+void SimkaAlgorithm<span>::print() { cout << "Output folder:   " << _outputDir << endl; }
 
 template<size_t span>
 void SimkaAlgorithm<span>::clear(){
 
-	if(_banks){
-		//_banks->finalize();
-		//delete _banks;
-	}
+	if(_banks) { }
 
 	System::file().remove(_banksInputFilename);
-    //if(_processor) _processor->forget();
 
     for(size_t i=0; i<_tempFilenamesToDelete.size(); i++){
     	System::file().remove(_tempFilenamesToDelete[i]);
     }
 
     if(_stats) delete _stats;
-    //if(_simkaDistance) delete _simkaDistance;
-	//_banks->remove();
-	//delete _processor;
 }

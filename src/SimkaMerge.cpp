@@ -22,7 +22,9 @@
 #include <gatb/gatb_core.hpp>
 #include <SimkaAlgorithm.hpp>
 #include <SimkaDistance.hpp>
-
+#include <fstream>
+#include <gzstream.h>
+#include "json.hpp"
 // We use the required packages
 using namespace std;
 
@@ -30,23 +32,10 @@ using namespace std;
 
 using namespace gatb::core::system;
 using namespace gatb::core::system::impl;
-
+using json = nlohmann::json;
 
 #define MERGE_BUFFER_SIZE 1000
 #define SIMKA_MERGE_MAX_FILE_USED 200
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 struct sortItem_Size_Filename_ID{
 
@@ -75,101 +64,9 @@ u_int64_t getFileSize(const string& filename){
 
 
 
-
-
-
-
-
-
-
-
-
-template<size_t span>
-class DistanceCommand : public gatb::core::tools::dp::ICommand //, public gatb::core::system::SmartPointer
-{
-public:
-
-    /** Shortcut. */
-    typedef typename Kmer<span>::Type           Type;
-    typedef typename Kmer<span>::Count          Count;
-
-
-    size_t _bufferIndex;
-	size_t _partitionId;
-	SimkaStatistics* _stats;
-	SimkaCountProcessorSimple<span>* _processor;
-
-	vector<Type> _bufferKmers;
-	vector<CountVector> _bufferCounts;
-
-    /** Constructor. */
-    DistanceCommand (
-    		const string& tmpDir,
-			const vector<string>& datasetIds,
-    		size_t partitionId,
-    		size_t nbBanks,
-			bool computeSimpleDistances,
-			bool computeComplexDistances,
-			size_t kmerSize,
-			pair<size_t, size_t>& abundanceThreshold,
-			float minShannonIndex
-    )
-	{
-    	_partitionId = partitionId;
-		_stats = new SimkaStatistics(nbBanks, computeSimpleDistances, computeComplexDistances, tmpDir, datasetIds);
-
-		_processor = new SimkaCountProcessorSimple<span> (_stats, nbBanks, kmerSize, abundanceThreshold, SUM, false, minShannonIndex);
-
-		_bufferKmers.resize(MERGE_BUFFER_SIZE);
-		_bufferCounts.resize(MERGE_BUFFER_SIZE);
-
-		_bufferIndex = 0;
-    }
-
-	~DistanceCommand(){
-		delete _processor;
-		delete _stats;
-	}
-
-    //void add(Type& kmer, CountVector& counts){
-    //	_bufferIndex +=
-    //}
-    void setup(size_t bufferIndex, vector<Type>& bufferKmers, vector<CountVector>& bufferCounts){
-
-    	//cout << "hey  " << bufferIndex << endl;
-    	_bufferIndex = bufferIndex;
-
-    	for(size_t i=0; i<_bufferIndex; i++){
-    		_bufferKmers[i] = bufferKmers[i];
-    		_bufferCounts[i] = bufferCounts[i];
-    	}
-    }
-
-    void execute (){
-    	for(size_t i=0; i<_bufferIndex; i++){
-    		_processor->process(_partitionId, _bufferKmers[i], _bufferCounts[i]);
-    	}
-    }
-
-	void use () {}
-	void forget () {}
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
 struct Parameter
 {
-    Parameter (IProperties* props, string inputFilename, string outputDir, size_t partitionId, size_t kmerSize, double minShannonIndex, bool computeSimpleDistances, bool computeComplexDistances, size_t nbCores) : props(props), inputFilename(inputFilename), outputDir(outputDir), partitionId(partitionId), kmerSize(kmerSize), minShannonIndex(minShannonIndex), computeSimpleDistances(computeSimpleDistances), computeComplexDistances(computeComplexDistances), nbCores(nbCores) {}
+    Parameter (IProperties* props, string inputFilename, string outputDir, size_t partitionId, size_t kmerSize, double minShannonIndex, bool computeSimpleDistances, bool computeComplexDistances, size_t nbCores, string f_matrix, string d_matrix, bool is_pipe, string json_path) : props(props), inputFilename(inputFilename), outputDir(outputDir), partitionId(partitionId), kmerSize(kmerSize), minShannonIndex(minShannonIndex), computeSimpleDistances(computeSimpleDistances), computeComplexDistances(computeComplexDistances), nbCores(nbCores), f_matrix(f_matrix), d_matrix(d_matrix), is_pipe(is_pipe), json_path(json_path) {}
     IProperties* props;
     string inputFilename;
     string outputDir;
@@ -179,6 +76,10 @@ struct Parameter
     bool computeSimpleDistances;
     bool computeComplexDistances;
     size_t nbCores;
+    string f_matrix;
+    string d_matrix;
+    bool is_pipe;
+    string json_path;
 };
 
 
@@ -208,44 +109,15 @@ public:
 		}
 	};
 
-    //typedef tuple<Type, u_int64_t, u_int64_t> Kmer_BankId_Count;
-    //typedef typename Kmer<span>::ModelCanonical                             ModelCanonical;
-    //typedef typename ModelCanonical::Kmer                                   KmerType;
-
-    StorageIt(Iterator<Kmer_BankId_Count>* it, size_t bankId, size_t partitionId){
-    	_it = it;
-    	//cout << h5filename << endl;
-    	_bankId = bankId;
-    	_partitionId = partitionId;
-
-
-
-		//Iterator<Count>* it2 = partition1.iterator();
-		//Collection<Count>& kmers1 = (*partition1)[_partitionId];
-		//collections.push_back(&kmers1);
-
-		//_it = kmers1.iterator();
-
-		//_nbKmers = it->estimateNbItems();
-		//it2->first();
-		//while(!it2->isDone()){
-		//	cout << it2->item().value.toString(31) << endl;
-		//	it2->next();
-		//}
-    }
+    StorageIt(Iterator<Kmer_BankId_Count>* it, size_t bankId, size_t partitionId);
 
     ~StorageIt(){
     	delete _it;
     }
 
-    //void setPartitionId(size_t partitionId){
-    //	_partitionId = partitionId;
-    //}
 
 	bool next(){
 		_it->next();
-
-		//cout << "is done?" <<  _it->isDone() << endl;
 		return !_it->isDone();
 	}
 
@@ -262,16 +134,18 @@ public:
 	}
 
 
-
-	//u_int64_t getNbKmers(){
-	//	return _nbKmers;
-	//}
-
 	u_int16_t _bankId;
 	u_int16_t _partitionId;
     Iterator<Kmer_BankId_Count>* _it;
-    //u_int64_t _nbKmers;
 };
+
+template<size_t span>
+StorageIt<span>::StorageIt (Iterator<StorageIt::Kmer_BankId_Count> *it, size_t bankId, size_t partitionId)
+{
+    _it = it;
+    _bankId = bankId;
+    _partitionId = partitionId;
+}
 
 
 class SimkaCounterBuilderMerge
@@ -325,316 +199,6 @@ private:
 };
 
 
-
-
-
-
-
-
-
-
-
-
-
-/*
-template<size_t span>
-class MergeCommand : public gatb::core::tools::dp::ICommand //, public gatb::core::system::SmartPointer
-{
-public:
-
-        void use () {}
-        void forget () {}
-
-    typedef typename Kmer<span>::Type           Type;
-    typedef typename Kmer<span>::Count          Count;
-
-
-	typedef std::pair<u_int16_t, Type> kxp; //id pointer in vec_pointer , value
-	struct kxpcomp { bool operator() (kxp l,kxp r) { return ((r.second) < (l.second)); } } ;
-
-	size_t _currentBuffer;
-	u_int64_t _progressStep;
-	vector<vector<Type> > _bufferKmers;
-	vector<vector<CountVector> > _bufferCounts;
-	vector<size_t> _bufferIndex;
-	u_int64_t _nbDistinctKmers;
-	u_int64_t _nbSharedDistinctKmers;
-
-	MergeCommand (
-    		size_t partitionId,
-    		size_t nbBanks,
-			IteratorListener* progress,
-			vector<StorageIt<span>*>& its,
-			u_int64_t progressStep,
-			size_t nbCores,
-			bool computeComplexDistances
-    ) :
-    	its(its)
-	{
-		_nbBanks = nbBanks;
-    	_partitionId = partitionId;
-    	_progress = progress;
-    	_progressStep = progressStep;
-    	_nbCores = nbCores;
-    	_computeComplexDistances = computeComplexDistances;
-    	_nbDistinctKmers = 0;
-    	_nbSharedDistinctKmers = 0;
-
-		init();
-    }
-
-	~MergeCommand(){
-		delete solidCounter;	
-	}
-
-    //void add(Type& kmer, CountVector& counts){
-    //	_bufferIndex +=
-    //}
-    //void setup(vector<Type>& bufferKmers, vector<CountVector>& bufferCounts){
-    //	_bufferKmers = bufferKmers;
-    //	_bufferCounts = bufferCounts;
-    //}
-
-	size_t _nbCores;
-	size_t _partitionId;
-	size_t _nbBanks;
-	vector<StorageIt<span>*>& its;
-	std::priority_queue< kxp, vector<kxp>,kxpcomp > pq;
-	u_int64_t nbKmersProcessed;
-	IteratorListener* _progress;
-	bool _computeComplexDistances;
-
-	u_int16_t best_p;
-	Type previous_kmer;
-    CountVector abundancePerBank;
-	size_t nbBankThatHaveKmer;
-	SimkaCounterBuilderMerge* solidCounter;
-	bool _isDone;
-
-
-	void init(){
-
-		_isDone = false;
-		solidCounter = new SimkaCounterBuilderMerge(abundancePerBank);
-		for(size_t i=0; i<_nbCores; i++){
-			vector<Type> vec = vector<Type>(MERGE_BUFFER_SIZE);
-			_bufferKmers.push_back(vec);
-			vector<CountVector> vec2 = vector<CountVector>(MERGE_BUFFER_SIZE);
-			_bufferCounts.push_back(vec2);
-			_bufferIndex.push_back(0);
-		}
-
-
-		nbBankThatHaveKmer = 0;
-		abundancePerBank.resize(_nbBanks, 0);
-		_currentBuffer = 0;
-		//_bufferIndex = 0;
-		//_bufferSize = 1000;
-
-		nbKmersProcessed = 0;
-		//vector<Partition<Count>*> partitions;
-		//vector<Collection<Count>*> collections;
-		//vector<Iterator<Count>*> its;
-		//vector<Storage*> storages;
-
-		//size_t nbPartitions;
-
-
-
-
-
-
-
-		for(size_t i=0; i<_nbBanks; i++){
-
-			StorageIt<span>* it = its[i];
-			it->_it->first();
-
-			//partitionIts[i]->first();
-
-			//while(!it->_it->isDone()){
-
-			//	it->_it->next();
-			//	cout << it->_it->item().value.toString(_kmerSize) << " " << it->_it->item().abundance << endl;
-			//}
-
-		}
-
-
-
-	    //fill the  priority queue with the first elems
-	    for (size_t ii=0; ii<_nbBanks; ii++)
-	    {
-	        //if(its[ii]->next())  {  pq.push(kxp(ii,its[ii]->value()));  }
-	    	pq.push(kxp(ii,its[ii]->value()));
-	    }
-
-	    if (pq.size() != 0) // everything empty, no kmer at all
-	    {
-	        //get first pointer
-	        best_p = pq.top().first ; pq.pop();
-
-	        previous_kmer = its[best_p]->value();
-
-	        solidCounter->init (its[best_p]->getBankId(), its[best_p]->abundance());
-	        nbBankThatHaveKmer = 1;
-	    }
-	}
-
-
-	void reset(){
-		for(size_t i=0; i<_bufferIndex.size(); i++){
-			_bufferIndex[i] = 0;
-		}
-	}
-
-
-    void execute (){
-
-    	//cout << "lala " << pq.size() << endl;
-
-
-
-	        //merge-scan all 'virtual' arrays and output counts
-	        while (_currentBuffer < _nbCores)
-	        {
-
-	        	//cout << _currentBuffer << endl;
-	            //go forward in this array or in new array of reaches end of this one
-	            if (! its[best_p]->next())
-	            {
-	                //reaches end of one array
-	                if(pq.size() == 0){
-	                	_isDone = true;
-	                	break;
-	                }
-
-	                //otherwise get new best
-	                best_p = pq.top().first ; pq.pop();
-	            }
-
-	            if (its[best_p]->value() != previous_kmer )
-	            {
-	                //if diff, changes to new array, get new min pointer
-	                pq.push(kxp(best_p,its[best_p]->value())); //push new val of this pointer in pq, will be counted later
-
-	                best_p = pq.top().first ; pq.pop();
-
-	                //if new best is diff, this is the end of this kmer
-	                if(its[best_p]->value()!=previous_kmer )
-	                {
-
-						nbKmersProcessed += nbBankThatHaveKmer;
-						if(nbKmersProcessed > _progressStep){
-							//cout << "queue size:   " << pq.size() << endl;
-							//cout << nbKmersProcessed << endl;
-							_progress->inc(nbKmersProcessed);
-							nbKmersProcessed = 0;
-						}
-
-						//cout << previous_kmer.toString(p.kmerSize) << endl;
-						//for(size_t i=0; i<abundancePerBank.size(); i++){
-						//	cout << abundancePerBank[i] << " ";
-						//}
-						//cout << endl;
-
-				        insert(previous_kmer, abundancePerBank, nbBankThatHaveKmer);
-						//if(nbBankThatHaveKmer > 1)
-						//	_processor->process (_partitionId, previous_kmer, abundancePerBank);
-	                    //this->insert (previous_kmer, solidCounter);
-
-	                    solidCounter->init (its[best_p]->getBankId(), its[best_p]->abundance());
-	                    nbBankThatHaveKmer = 1;
-	                    previous_kmer = its[best_p]->value();
-	                }
-	                else
-	                {
-	                    solidCounter->increase (its[best_p]->getBankId(), its[best_p]->abundance());
-	                    nbBankThatHaveKmer += 1;
-	                }
-	            }
-	            else
-	            {
-	                solidCounter->increase (its[best_p]->getBankId(), its[best_p]->abundance());
-	                nbBankThatHaveKmer += 1;
-	            }
-	        }
-
-	        if(_isDone){
-		        insert(previous_kmer, abundancePerBank, nbBankThatHaveKmer);
-	        }
-	        else{
-	        }
-
-			_currentBuffer = 0;
-			//_bufferIndex = 0;
-        	//cout << nbBankThatHaveKmer << endl;
-
-	    	//cout << previous_kmer.toString(p.kmerSize) << endl;
-	        //for(size_t i=0; i<abundancePerBank.size(); i++){
-	        //	cout << abundancePerBank[i] << " ";
-	        //}
-	        //cout << endl;
-
-	        //last elem
-	        //insert(previous_kmer, abundancePerBank, nbBankThatHaveKmer);
-	        //this->insert (previous_kmer, solidCounter);
-	   // }
-
-
-	    	//cout << "end " << endl;
-    }
-
-
-
-
-
-
-	void insert(const Type& kmer, const CountVector& counts, size_t nbBankThatHaveKmer){
-
-		_nbDistinctKmers += 1;
-
-        if(_computeComplexDistances || nbBankThatHaveKmer > 1){
-
-        	if(nbBankThatHaveKmer > 1){
-        		_nbSharedDistinctKmers += 1;
-        	}
-
-			//DistanceCommand<span>* cmd = dynamic_cast<DistanceCommand<span>*>(_cmds[_currentBuffer]);
-			//cmd->_bufferKmers[cmd->_bufferIndex] = kmer;
-			//cmd->_bufferCounts[cmd->_bufferIndex] = counts;
-        	_bufferKmers[_currentBuffer][_bufferIndex[_currentBuffer]] = kmer;
-        	_bufferCounts[_currentBuffer][_bufferIndex[_currentBuffer]] = counts;
-
-			_bufferIndex[_currentBuffer] += 1;
-        	if(_bufferIndex[_currentBuffer] >= MERGE_BUFFER_SIZE){
-				//DistanceCommand<span>* cmd = dynamic_cast<DistanceCommand<span>*>(_cmds[_currentBuffer]);
-				//cmd->setup(_bufferKmers[_currentBuffer], _bufferCounts[_currentBuffer]);
-
-        		_currentBuffer += 1;
-        		if(_currentBuffer >= _nbCores){
-        			//dispatch();
-        		}
-        		else{
-        			//_bufferIndex = 0;
-        		}
-        	}
-        	//_processor->process (_partitionId, kmer, counts);
-        }
-
-    	//_processor->process (_partitionId, kmer, counts);
-
-
-		//cout <<_partitiontId << " "<< kmer.toString(31) << endl;
-		//_processor->process (_partitionId, kmer, counter.get());
-	}
-
-
-};
-*/
-
-
-
 template<size_t span>
 class DiskBasedMergeSort
 {
@@ -643,9 +207,6 @@ public:
 
 	typedef typename Kmer<span>::Type                                       Type;
 	typedef typename Kmer<span>::Count                                      Count;
-    //typedef tuple<Type, u_int64_t, u_int64_t> Kmer_BankId_Count;
-    //typedef tuple<Type, u_int64_t, u_int64_t, StorageIt<span>*> kxp;
-
 	typedef typename StorageIt<span>::Kmer_BankId_Count Kmer_BankId_Count;
 
 	struct kxp{
@@ -700,45 +261,14 @@ public:
 		size_t _nbBanks = _datasetIds.size();
 
 		for(size_t i=0; i<_nbBanks; i++){
-			//cout << _datasetIds[i] << endl;
 			string filename = _outputDir + "/solid/part_" +  Stringify::format("%i", _partitionId) + "/__p__" + Stringify::format("%i", _datasetIds[i]) + ".gz";
-			//cout << "\t\t" << filename << endl;
 			IterableGzFile<Kmer_BankId_Count>* partition = new IterableGzFile<Kmer_BankId_Count>(filename, 10000);
 			partitions.push_back(partition);
 			its.push_back(new StorageIt<span>(partition->iterator(), i, _partitionId));
-			//nbKmers += partition->estimateNbItems();
-
-			//size_t currentPart = 0;
-			//ifstream file((_outputDir + "/kmercount_per_partition/" +  _datasetIds[i] + ".txt").c_str());
-			//while(getline(file, line)){
-			//	if(line == "") continue;
-			//	if(currentPart == _partitionId){
-			//		//cout << stoull(line) << endl;
-			//		nbKmers += strtoull(line.c_str(), NULL, 10);
-			//		break;
-			//	}
-			//	currentPart += 1;
-			//}
-			//file.close();
 		}
 
-		//u_int64_t progressStep = nbKmers / 1000;
-		//_progress = new ProgressSynchro (
-		//	createIteratorListener (nbKmers, "Merging kmers"),
-		//	System::thread().newSynchronizer());
-		//_progress->init ();
-
-
-
-		//_nbDistinctKmers = 0;
-		//_nbSharedDistinctKmers = 0;
-		//u_int64_t nbKmersProcessed = 0;
-		//size_t nbBankThatHaveKmer = 0;
-		//u_int16_t best_p = 0;
 		Type previous_kmer;
-		//CountVector abundancePerBank;
-		//abundancePerBank.resize(_nbBanks, 0);
-		//SimkaCounterBuilderMerge* solidCounter = new SimkaCounterBuilderMerge(abundancePerBank);;
+
 		std::priority_queue< kxp, vector<kxp>,kxpcomp > pq;
 		StorageIt<span>* bestIt;
 
@@ -751,7 +281,6 @@ public:
 		//fill the  priority queue with the first elems
 		for (size_t ii=0; ii<_nbBanks; ii++)
 		{
-			//pq.push(Kmer_BankId_Count(ii,its[ii]->value()));
 			pq.push(kxp(its[ii]->value(), its[ii]->getBankId(), its[ii]->abundance(), its[ii]));
 		}
 
@@ -790,10 +319,6 @@ public:
 				//pq.push(kxp(bestIt->value(), bestIt->getBankId(), bestIt->abundance(), bestIt));
 
 			}
-
-
-	    	//_outputGzFile->insert(Kmer_BankId_Count(bestIt->value(), bestIt->getBankId(), bestIt->abundance()));
-	    	//cout << bestIt->value().toString(31) << " " << bestIt->getBankId() <<  " "<< bestIt->abundance() << endl;
 		}
 
 		for(size_t i=0; i<partitions.size(); i++){
@@ -809,7 +334,6 @@ public:
     	delete _cachedBag;
 
 		for(size_t i=0; i<_nbBanks; i++){
-			//cout << _datasetIds[i] << endl;
 			string filename = _outputDir + "/solid/part_" +  Stringify::format("%i", _partitionId) + "/__p__" + Stringify::format("%i", _datasetIds[i]) + ".gz";
 			System::file().remove(filename);
 		}
@@ -817,11 +341,9 @@ public:
 		string newOutputFilename = _outputFilename;
 		newOutputFilename.erase(_outputFilename.size()-5, 5);
     	System::file().rename(_outputFilename, newOutputFilename); //remove .temp at the end of new merged file
-    	//_outputFilename = newOutputFilename;
     }
 
 };
-
 
 
 template<size_t span>
@@ -832,55 +354,10 @@ public:
 
 	typedef typename Kmer<span>::Type                                       Type;
 	typedef typename Kmer<span>::Count                                      Count;
-    //typedef tuple<Type, u_int64_t, u_int64_t> Kmer_BankId_Count;
-
-    //typedef tuple<Type, u_int64_t, u_int64_t, StorageIt<span>*> kxp;
-
 	typedef typename DiskBasedMergeSort<span>::Kmer_BankId_Count Kmer_BankId_Count;
 	typedef typename DiskBasedMergeSort<span>::kxp kxp;
 
-
-	/*
-	struct Kmer_BankId_Count{
-		Type _type;
-		u_int64_t _bankId;
-		u_int64_t _count;
-
-		Kmer_BankId_Count(){
-
-		}
-
-		Kmer_BankId_Count(Type type, u_int64_t bankId, u_int64_t count){
-			_type = type;
-			_bankId = bankId;
-			_count = count;
-		}
-	};
-
-	struct kxp{
-		Type _type;
-		u_int32_t _bankId;
-		u_int64_t _count;
-		StorageIt<span>* _it;
-
-		kxp(){
-
-		}
-
-		kxp(Type type, u_int64_t bankId, u_int64_t count, StorageIt<span>* it){
-			_type = type;
-			_bankId = bankId;
-			_count = count;
-			_it = it;
-		}
-	};*/
-
-
-
-	//typedef std::pair<u_int16_t, Type> kxp; //id pointer in vec_pointer , value
-    //typedef std::pair<u_int16_t, Type> kxp; //id pointer in vec_pointer , value
-	//struct kxpcomp { bool operator() (Kmer_BankId_Count l,Kmer_BankId_Count r) { return ((r.second) < (l.second)); } } ;
-	struct kxpcomp { bool operator() (kxp& l,kxp& r) { return (r._type < l._type); } } ;
+    struct kxpcomp { bool operator() (kxp& l,kxp& r) { return (r._type < l._type); } } ;
 
 	Parameter& p;
 
@@ -900,60 +377,42 @@ public:
 		//delete _progress;
 	}
 
-	//pthread_t statThread;_datasetNbReads
-
-	/*
-	void createInfo(Parameter& p){
-
-
-
-	}
-
-
-	void loadCountInfo(){
-    	for(size_t i=0; i<_nbBanks; i++){
-    		string name = _datasetIds[i];
-    		string countFilename = p.outputDir + "/count_synchro/" +  name + ".ok";
-
-    		string line;
-	    	ifstream file(countFilename.c_str());
-	    	vector<string> lines;
-			while(getline(file, line)){
-				if(line == "") continue;
-				lines.push_back(line);
-			}
-			file.close();
-
-			u_int64_t nbReads = strtoull(lines[0].c_str(), NULL, 10);
-
-			_stats->_datasetNbReads[i] = nbReads;
-			_stats->_nbSolidDistinctKmersPerBank[i] = strtoull(lines[1].c_str(), NULL, 10);
-			_stats->_nbSolidKmersPerBank[i] = strtoull(lines[2].c_str(), NULL, 10);
-			_stats->_chord_sqrt_N2[i] = sqrt(strtoull(lines[3].c_str(), NULL, 10));
-			//cout << _stats->_chord_sqrt_N2[i] << endl;
-    	}
-	}*/
-
-
-	//struct sortFileBySize { bool operator() (sortItem_Size_Filename_ID& l,sortItem_Size_Filename_ID& r) { return (r._size < l._size); } } ;
-
 	void execute(){
+        _output_matrix = p.f_matrix;
+        _is_pipe = p.is_pipe;
+        _output_dir_m = p.d_matrix;
+        _nbCores = p.nbCores;
+        _json_file = p.json_path;
+        std::ifstream ifs(_json_file);
+        json _j_groups;
+        ifs >> _j_groups;
+        bool _groups = (_json_file != "None");
 
-		_nbCores = p.nbCores;
-
-
-
-
-		removeStorage(p);
+		//removeStorage(p);
 
 		_partitionId = p.partitionId;
+
+		ofstream matrix_pipe;
+        ogzstream matrix_file;
+        char buffer[2048];
+
+        if ( _is_pipe )
+        {
+            matrix_pipe.rdbuf()->pubsetbuf(buffer, sizeof(buffer));
+		    matrix_pipe.open(_output_matrix, std::ios::app);
+        }
+
+        else
+        {
+            const std::string matrix_part = _output_dir_m + "/" + Stringify::format("%i", _partitionId) + ".gz";
+            matrix_file.open(matrix_part.c_str());
+        }
 
 		createDatasetIdList(p);
 		_nbBanks = _datasetIds.size();
 
 		string partDir = p.outputDir + "/solid/part_" + Stringify::format("%i", _partitionId) + "/";
 		vector<string> filenames = System::file().listdir(partDir);
-		//cout << filenames.size() << endl;
 		vector<string> partFilenames;
 		vector<sortItem_Size_Filename_ID> filenameSizes;
 
@@ -967,18 +426,13 @@ public:
 				id.erase(pos, 3);
 
 				size_t datasetId = atoll(id.c_str());
-				//cout << filenames[i] << " " << datasetId << endl;
 
 				filenameSizes.push_back(sortItem_Size_Filename_ID(getFileSize(partDir+filenames[i]), datasetId));
-				//cout << filenames[i] << " " << size << endl;
-				//cout << filenames[i] << endl;
 			}
 		}
 
-		//cout << "mettre un while ici" << endl;
 		while(filenameSizes.size() > SIMKA_MERGE_MAX_FILE_USED){
 
-			//cout << "Start merging pass" << endl;
 			sort(filenameSizes.begin(),filenameSizes.end(),sortFileBySize);
 
 			vector<size_t> mergeDatasetIds;
@@ -988,12 +442,6 @@ public:
 			for(size_t i=0; i<SIMKA_MERGE_MAX_FILE_USED; i++){
 				sortItem_Size_Filename_ID sfi = filenameSizes[i];
 				mergeDatasetIds.push_back(sfi._datasetID);
-				//datasetIndex += 1;
-				//if(datasetIndex >= _nbBanks) break;
-
-				//cout << mergeDatasetIds[i] << endl;
-				//cout << "First val must never be greater than second:   " << i << "  " << _nbBanks << endl;
-				//cout << "\t" << get<1>(sfi) << endl;
 			}
 
 			for(size_t i=0; i<mergeDatasetIds.size(); i++){
@@ -1005,74 +453,9 @@ public:
 			diskBasedMergeSort.execute();
 
 			filenameSizes.push_back(sortItem_Size_Filename_ID(getFileSize(diskBasedMergeSort._outputFilename), mergedId));
-
-			//cout << "\tmerged id: " <<  mergedId << endl;
-			//cout << "\tremainging files: " << filenameSizes.size() << endl;
 		}
 
-		//cout << filenameSizes.size() << endl;
-		//for(size_t i=0; i<filenameSizes.size(); i++){
-		//	cout << filenameSizes[i].first << endl;
-		//}
-
-		//size_t nbMerges = 0;
-		/*
-		//cout << partFilenames.size() << endl;
-		exit(1);
-
-		size_t nbMerges = ceil((float)_nbBanks / (float)SIMKA_MERGE_MAX_FILE_USED);
-		cout << "nb Merges: " << nbMerges << endl;
-		size_t datasetIndex = 0;
-
-		for(size_t i=0; i<nbMerges; i++){
-
-			vector<string> mergeDatasetIds;
-
-			for(size_t j=0; j<SIMKA_MERGE_MAX_FILE_USED; j++){
-				mergeDatasetIds.push_back(_datasetIds[datasetIndex]);
-				datasetIndex += 1;
-				if(datasetIndex >= _nbBanks) break;
-			}
-
-			cout << "doivent etre égaux a la dernière passe:    " << _nbBanks << " " << mergeDatasetIds.size() << " " << datasetIndex << endl;
-
-			DiskBasedMergeSort<span> diskBasedMergeSort(i, p.outputDir, mergeDatasetIds, _partitionId);
-			diskBasedMergeSort.execute();
-
-		}*/
-
-		//exit(1);
-		/* PARALLEL
-		for (size_t i=0; i<_nbCores; i++)
-	    {
-		//cout << i << endl;
-	        ICommand* cmd = 0;
-	        cmd = new DistanceCommand<span>(p.outputDir, _datasetIds, _partitionId, _nbBanks, _computeSimpleDistances, _computeComplexDistances, _kmerSize, _abundanceThreshold, _minShannonIndex);
-	        //cmd->use();
-	        _cmds.push_back (cmd);
-
-                        //cout << _cmds[i] << endl;
-	    }
-
-		resetCommands();
-		*/
-
-
-		//SimkaDistanceParam distanceParams(p.props);
-		//createInfo(p);
-
-
-		//createProcessor(p);
-
-		//PARALLEL line to remove
 		_stats = new SimkaStatistics(_nbBanks, p.computeSimpleDistances, p.computeComplexDistances, p.outputDir, _datasetIds);
-		_processor = new SimkaCountProcessorSimple<span> (_stats, _nbBanks, p.kmerSize, _abundanceThreshold, SUM, false, p.minShannonIndex);
-		//_processor->use();
-
-
-
-
-
 
 		string line;
 		vector<IterableGzFile<Kmer_BankId_Count>* > partitions;
@@ -1082,18 +465,16 @@ public:
     	for(size_t i=0; i<filenameSizes.size(); i++){
     		size_t datasetId = filenameSizes[i]._datasetID;
     		string filename = p.outputDir + "/solid/part_" + Stringify::format("%i", p.partitionId) + "/__p__" + Stringify::format("%i", datasetId) + ".gz";
-    		//cout << filename << endl;
     		IterableGzFile<Kmer_BankId_Count>* partition = new IterableGzFile<Kmer_BankId_Count>(filename, 10000);
+
     		partitions.push_back(partition);
     		its.push_back(new StorageIt<span>(partition->iterator(), i, _partitionId));
-    		//nbKmers += partition->estimateNbItems();
 
     		size_t currentPart = 0;
 	    	ifstream file((p.outputDir + "/kmercount_per_partition/" +  _datasetIds[i] + ".txt").c_str());
 			while(getline(file, line)){
 				if(line == "") continue;
 				if(currentPart == _partitionId){
-					//cout << stoull(line) << endl;
 					nbKmers += strtoull(line.c_str(), NULL, 10);
 					break;
 				}
@@ -1102,65 +483,7 @@ public:
 			file.close();
     	}
 
-
-		/*
-		//vector<Iterator<Count>* > partitionIts;
-    	for(size_t i=0; i<_nbBanks; i++){
-    		string filename = p.outputDir + "/solid/" +  _datasetIds[i] + "/" + "part" + Stringify::format("%i", _partitionId);
-    		//cout << filename << endl;
-    		IterableGzFile<Kmer_BankId_Count>* partition = new IterableGzFile<Kmer_BankId_Count>(filename, 1000);
-    		partitions.push_back(partition);
-    		its.push_back(new StorageIt<span>(partition->iterator(), i, _partitionId));
-    		//nbKmers += partition->estimateNbItems();
-
-    		size_t currentPart = 0;
-	    	ifstream file((p.outputDir + "/kmercount_per_partition/" +  _datasetIds[i] + ".txt").c_str());
-			while(getline(file, line)){
-				if(line == "") continue;
-				if(currentPart == _partitionId){
-					//cout << stoull(line) << endl;
-					nbKmers += strtoull(line.c_str(), NULL, 10);
-					break;
-				}
-				currentPart += 1;
-			}
-			file.close();
-    	}*/
-
-    	//u_int64_t progressStep = nbKmers / 1000;
-    	//_progress = new ProgressSynchro (
-    	//	createIteratorListener (nbKmers, "Merging kmers"),
-    	//	System::thread().newSynchronizer());
-    	//_progress->init ();
-
-
-		/* PARALLEL
-		_mergeCommand = new MergeCommand<span>(
-    		_partitionId,
-    		_nbBanks,
-			_progress,
-			its,
-			progressStep,
-			_nbCores,
-			p.computeComplexDistances);
-		//_mergeCommand->use();
-		_cmds.push_back(_mergeCommand);
-
-
-		//cout << "CMDS SIZE:" << _cmds.size() << endl;
-
-
-		MergeCommand<span>* mergeCmd = dynamic_cast<MergeCommand<span>*>(_mergeCommand);
-		mergeCmd->execute();
-
-		while(!mergeCmd->_isDone){
-			//cout << mergeCmd->_isDone << endl;
-			//mergeCmd->execute();
-			dispatch();
-		}
-
-	    dispatch();*/
-
+		
 		_nbDistinctKmers = 0;
 		_nbSharedDistinctKmers = 0;
 		u_int64_t nbKmersProcessed = 0;
@@ -1182,7 +505,6 @@ public:
 	    //fill the  priority queue with the first elems
 	    for (size_t ii=0; ii<its.size(); ii++)
 	    {
-	    	//pq.push(Kmer_BankId_Count(ii,its[ii]->value()));
 	    	pq.push(kxp(its[ii]->value(), its[ii]->getBankId(), its[ii]->abundance(), its[ii]));
 	    }
 
@@ -1195,6 +517,7 @@ public:
 	        solidCounter->init (bestIt->getBankId(), bestIt->abundance());
 	        nbBankThatHaveKmer = 1;
 
+	        unsigned int counter = 0;
 			while(1){
 
 				if (! bestIt->next())
@@ -1209,7 +532,6 @@ public:
 			    	bestIt = pq.top()._it; pq.pop();
 				}
 
-		    	//cout << bestIt->value().toString(31) << " " << bestIt->getBankId() <<  " "<< bestIt->abundance() << endl;
 
 				if (bestIt->value() != previous_kmer )
 				{
@@ -1222,25 +544,20 @@ public:
 					//if new best is diff, this is the end of this kmer
 					if(bestIt->value()!=previous_kmer )
 					{
-
-						//nbKmersProcessed += nbBankThatHaveKmer;
-						//if(nbKmersProcessed > progressStep){
-							//cout << "queue size:   " << pq.size() << endl;
-							//cout << nbKmersProcessed << endl;
-							//_progress->inc(nbKmersProcessed);
-						//nbKmersProcessed = 0;
-						//}
-
-						//cout << previous_kmer.toString(p.kmerSize) << endl;
-						//for(size_t i=0; i<abundancePerBank.size(); i++){
-						//	cout << abundancePerBank[i] << " ";
-						//}
-						//cout << endl;
-
 						insert(previous_kmer, abundancePerBank, nbBankThatHaveKmer);
-						//if(nbBankThatHaveKmer > 1)
-						//	_processor->process (_partitionId, previous_kmer, abundancePerBank);
-						//this->insert (previous_kmer, solidCounter);
+                        //if ( !m_line.empty() )
+                        //{
+                            if ( _is_pipe )
+                            {
+                                if (_groups) matrix_pipe << toMatrix(previous_kmer, abundancePerBank, _j_groups);
+                                else matrix_pipe << toMatrix (previous_kmer, abundancePerBank);
+                            }
+                            else
+                            {
+                                if (_groups) matrix_file << toMatrix(previous_kmer, abundancePerBank, _j_groups);
+                                else matrix_file << toMatrix (previous_kmer, abundancePerBank);
+                            }
+                        //}
 
 						solidCounter->init (bestIt->getBankId(), bestIt->abundance());
 						nbBankThatHaveKmer = 1;
@@ -1254,84 +571,117 @@ public:
 				}
 				else
 				{
-					//cout << "increase" << endl;
 					solidCounter->increase (bestIt->getBankId(), bestIt->abundance());
 					nbBankThatHaveKmer += 1;
 				}
 			}
 
 			insert(previous_kmer, abundancePerBank, nbBankThatHaveKmer);
-	    }
+            //if ( !m_line.empty() )
+            //{
+                if ( _is_pipe )
+                {
+                    if (_groups) matrix_pipe << toMatrix(previous_kmer, abundancePerBank, _j_groups);
+                    else matrix_pipe << toMatrix (previous_kmer, abundancePerBank);
+                }
+                else
+                {
+                    if (_groups) matrix_file << toMatrix(previous_kmer, abundancePerBank, _j_groups);
+                    else matrix_file << toMatrix (previous_kmer, abundancePerBank);
+                }
+            //}
+        }
 
 
-		_processor->end();
+	    matrix_file.close();
+		matrix_pipe.close();
 
-		//cout << "lala" << endl;
-		for(size_t i=0; i<partitions.size(); i++){
+	    for ( size_t i = 0; i < partitions.size(); i++ )
+		{
 			delete partitions[i];
 		}
 
-
 		saveStats(p);
 
-
 		delete _stats;
-		delete _processor;
-		//for(size_t i=0; i<its.size(); i++){
-		//	delete its[i];
-		//}
-
-		/* PARALLEL
-		saveStats(p, mergeCmd->_nbDistinctKmers, mergeCmd->_nbSharedDistinctKmers);
-
-
-		//cout << _cmds.size() << endl;
-		for(size_t i=0; i<_cmds.size(); i++){
-			//cout << _cmds[i] << endl;
-			//_cmds[i]->forget();
-			delete _cmds[i];		
-		}
-		//_cmds.clear();
-		//delete _mergeCommand;
-		*/
 		delete solidCounter;
-		for(size_t i=0; i<its.size(); i++){
+		
+        for(size_t i=0; i<its.size(); i++){
 			delete its[i];
 		}
 
 		writeFinishSignal(p);
-		//_progress->finish();
-
 	}
 
-	void insert(const Type& kmer, const CountVector& counts, size_t nbBankThatHaveKmer){
-
-		//cout << kmer.toString(31) << endl;
-		//for(size_t i=0; i<counts.size(); i++){
-		//	cout << counts[i] << " ";
-		//}
-		//cout << endl;
-
+	void insert(const Type& kmer, const CountVector& counts, size_t nbBankThatHaveKmer)
+    {
 		_stats->_nbDistinctKmers += 1;
-
-		if(_computeComplexDistances || nbBankThatHaveKmer > 1){
-
-			if(nbBankThatHaveKmer > 1){
-				_stats->_nbSharedKmers += 1;
-			}
-
-			_processor->process(_partitionId, kmer, counts);
-
-		}
+        if ( nbBankThatHaveKmer > 1 ) { _stats->_nbSharedKmers += 1; }
 	}
 
-	void createDatasetIdList(Parameter& p){
+	std::string toMatrix (const Type& kmer, const CountVector& counts) {
+        std::string new_line;
 
-		string datasetIdFilename = p.outputDir + "/" + "datasetIds";
-		IFile* inputFile = System::file().newFile(datasetIdFilename, "rb");
-		//IFile* bankFile = System::file().newFile(_banksInputFilename, "wb");
+        int sumLine = 0;
+        for ( auto& n : counts )
+        {
+            sumLine += n;
+            if ( sumLine > 1) goto keep;
+        }
+        return new_line;
 
-		inputFile->seeko(0, SEEK_END);
+        keep:
+            new_line += kmer.toString(_kmerSize);
+            for ( auto& i : counts )
+            {
+                if (i) new_line += "1";
+                else { new_line += "0";}
+            }
+            new_line += "\n";
+            return new_line;
+    }
+
+    std::string toMatrix (const Type& kmer, const CountVector& counts, const json& groups)
+    {
+	    std::string new_line(kmer.toString(_kmerSize));
+	    for (int i=0; i<counts.size(); i++)
+        {
+	        if (counts[i] == 0) new_line += "0";
+	        else if (counts[i] > 1) new_line += "1";
+	        else if (counts[i] == 1)
+            {
+	            bool in_grp = check_group(counts, groups, i);
+	            if (in_grp)
+                {
+	                new_line += "1";
+                }
+	            else new_line += "0";
+            }
+        }
+
+	    new_line += "\n";
+	    return new_line;
+    }
+
+    bool check_group(const CountVector& counts, const json& groups, const int& exp)
+    {
+	    auto l_groups = groups[exp];
+	    int sum_in_group = 0;
+	    for ( auto& pos : l_groups )
+        {
+	        sum_in_group += pos.get<int>();
+	        if ( sum_in_group > 1 ) return true;
+        }
+	    return false;
+    }
+
+    void createDatasetIdList(Parameter& p)
+    {
+
+    	string datasetIdFilename = p.outputDir + "/" + "datasetIds";
+        IFile* inputFile = System::file().newFile(datasetIdFilename, "rb");
+
+        inputFile->seeko(0, SEEK_END);
 		u_int64_t size = inputFile->tell();
 		inputFile->seeko(0, SEEK_SET);
 		char buffer2[size];
@@ -1343,10 +693,6 @@ public:
 		vector<string> linePartList;
 		stringstream fileContentsStream(fileContents);
 
-		//string bankFileContents = "";
-
-		//u_int64_t lineIndex = 0;
-
 		while(getline(fileContentsStream, line)){
 
 			if(line == "") continue;
@@ -1354,118 +700,21 @@ public:
 			_datasetIds.push_back(line);
 		}
 
-		//bankFileContents.erase(bankFileContents.size()-1);
-		//bankFileContents.pop_back(); // "remove last /n
-
-		//bankFile->fwrite(bankFileContents.c_str(), bankFileContents.size(), 1);
-
 		delete inputFile;
 	}
 
-	void createProcessor(Parameter& p){
 
-
-
-		//ICountProcessor<span>* proc = _processor->clone();
-		//proc->use();
-
-		//_processors.push_back(proc);
-	}
-
-	void resetCommands(){
-		for (size_t i=0; i<_nbCores; i++){
-			DistanceCommand<span>* cmd = dynamic_cast<DistanceCommand<span>*>(_cmds[i]);
-			cmd->_bufferIndex = 0;
-		}
-
-	}
-
-	/*
-	void dispatch(){
-
-
-		MergeCommand<span>* mergeCommand = dynamic_cast<MergeCommand<span>*>(_mergeCommand);
-		for (size_t i=0; i<_nbCores; i++){
-			//cout << mergeCommand->_bufferKmers.size() << endl;
-			//cout << i << endl;
-			DistanceCommand<span>* cmd = dynamic_cast<DistanceCommand<span>*>(_cmds[i]);
-			cmd->setup(mergeCommand->_bufferIndex[i], mergeCommand->_bufferKmers[i], mergeCommand->_bufferCounts[i]);
-		}
-
-
-		//MergeCommand<span>* mergeCommand = dynamic_cast<MergeCommand<span>*>(_mergeCommand);
-		mergeCommand->reset();
-
-		//cout << "start dispatch" << endl;
-	    getDispatcher()->dispatchCommands(_cmds, 0);
-
-
-		//cout << "end dispatch" << endl;
-	    resetCommands();
-
-
-	}*/
-
-
-	void removeStorage(Parameter& p){
-		//Storage* storage = 0;
-		//storage = StorageFactory(STORAGE_HDF5).create (p.outputDir + "/stats/part_" + SimkaAlgorithm<>::toString(p.partitionId) + ".stats", true, true);
-		//LOCAL (storage);
-	}
-
-
-	/* PARALLEL
-	void saveStats(Parameter& p, const u_int64_t nbDistinctKmers, const u_int64_t nbSharedDistinctKmers){
-
-		_stats = new SimkaStatistics(_nbBanks, p.computeSimpleDistances, p.computeComplexDistances, p.outputDir, _datasetIds);
-
-		for (size_t i=0; i<_nbCores; i++){
-			DistanceCommand<span>* cmd = dynamic_cast<DistanceCommand<span>*>(_cmds[i]);
-			cmd->_processor->end();
-			(*_stats) += (*cmd->_stats);
-		}
-		//loadCountInfo();
-
-		string filename = p.outputDir + "/stats/part_" + SimkaAlgorithm<>::toString(p.partitionId) + ".gz";
-
-		_stats->_nbDistinctKmers = nbDistinctKmers;
-		_stats->_nbSharedKmers = nbSharedDistinctKmers;
-		_stats->save(filename); //storage->getGroup(""));
-
-		
-		delete _stats;
-		//string filename = p.outputDir + "/stats/part_" + SimkaAlgorithm<>::toString(p.partitionId) + ".gz";
-		//_processor->finishClones(_processors);
-		//Storage* storage = 0;
-		//storage = StorageFactory(STORAGE_HDF5).create (p.outputDir + "/stats/part_" + SimkaAlgorithm<>::toString(p.partitionId) + ".stats", true, false);
-		//LOCAL (storage);
-		//_stats->save(filename); //storage->getGroup(""));
-
-		//cout << _stats->_nbKmers << endl;
-
-		//_processors[0]->forget();
-		//_processor->forget();
-
-	}*/
+	//void removeStorage(Parameter& p){
+	//	//Storage* storage = 0;
+	//	//storage = StorageFactory(STORAGE_HDF5).create (p.outputDir + "/stats/part_" + SimkaAlgorithm<>::toString(p.partitionId) + ".stats", true, true);
+	//	//LOCAL (storage);
+	//}
 
 	void saveStats(Parameter& p){
 
 		string filename = p.outputDir + "/stats/part_" + SimkaAlgorithm<>::toString(p.partitionId) + ".gz";
 
 		_stats->save(filename); //storage->getGroup(""));
-
-
-		//string filename = p.outputDir + "/stats/part_" + SimkaAlgorithm<>::toString(p.partitionId) + ".gz";
-		//_processor->finishClones(_processors);
-		//Storage* storage = 0;
-		//storage = StorageFactory(STORAGE_HDF5).create (p.outputDir + "/stats/part_" + SimkaAlgorithm<>::toString(p.partitionId) + ".stats", true, false);
-		//LOCAL (storage);
-		//_stats->save(filename); //storage->getGroup(""));
-
-		//cout << _stats->_nbKmers << endl;
-
-		//_processors[0]->forget();
-		//_processor->forget();
 
 	}
 
@@ -1481,46 +730,26 @@ private:
 	bool _computeComplexDistances;
 	size_t _kmerSize;
 	float _minShannonIndex;
-
+    string _output_matrix;
+    string _output_dir_m;
+    bool _is_pipe;
+    string _json_file;
 	pair<size_t, size_t> _abundanceThreshold;
 	vector<string> _datasetIds;
 	size_t _partitionId;
-	//vector<ICountProcessor<span>*> _processors;
 
 	IteratorListener* _progress;
 
-    vector<ICommand*> _cmds;
-	ICommand* _mergeCommand;
+    //vector<ICommand*> _cmds;
+	//ICommand* _mergeCommand;
 	size_t _nbCores;
 
 
 	SimkaStatistics* _stats;
-	SimkaCountProcessorSimple<span>* _processor;
+	//SimkaCountProcessorSimple<span>* _processor;
 	u_int64_t _nbDistinctKmers;
 	u_int64_t _nbSharedDistinctKmers;
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class SimkaMerge : public Tool
@@ -1538,6 +767,10 @@ public:
         getParser()->push_back (new OptionOneParam ("-nb-cores",   "bank name", true));
         getParser()->push_back (new OptionOneParam ("-max-memory",   "bank name", true));
         getParser()->push_back (new OptionOneParam (STR_SIMKA_MIN_KMER_SHANNON_INDEX,   "bank name", true));
+        getParser()->push_back (new OptionOneParam ("-matrix", "output matrix", true));
+        getParser()->push_back (new OptionOneParam ("-dir-matrix", "dir output matrix", true));
+        getParser()->push_back (new OptionOneParam ("-pipe", "if pipe", false, "false"));
+        getParser()->push_back (new OptionOneParam ("-groups", "json file", true));
 
         getParser()->push_back (new OptionNoParam (STR_SIMKA_COMPUTE_ALL_SIMPLE_DISTANCES.c_str(), "compute simple distances"));
         getParser()->push_back (new OptionNoParam (STR_SIMKA_COMPUTE_ALL_COMPLEX_DISTANCES.c_str(), "compute complex distances"));
@@ -1555,14 +788,20 @@ public:
     	double minShannonIndex =   getInput()->getDouble(STR_SIMKA_MIN_KMER_SHANNON_INDEX);
     	bool computeSimpleDistances =   getInput()->get(STR_SIMKA_COMPUTE_ALL_SIMPLE_DISTANCES);
     	bool computeComplexDistances =   getInput()->get(STR_SIMKA_COMPUTE_ALL_COMPLEX_DISTANCES);
+        string f_matrix = getInput()->getStr("-matrix");
+        string d_matrix = getInput()->getStr("-dir-matrix");
+        string pipe = getInput()->getStr("-pipe");
+        string json_path = getInput()->getStr("-groups");
 
-    	Parameter params(getInput(), inputFilename, outputDir, partitionId, kmerSize, minShannonIndex, computeSimpleDistances, computeComplexDistances, nbCores);
+        bool is_pipe;
+        if (pipe == "true") is_pipe = true;
+        else is_pipe = false;
+
+        Parameter params(getInput(), inputFilename, outputDir, partitionId, kmerSize, minShannonIndex, computeSimpleDistances, computeComplexDistances, nbCores, f_matrix, d_matrix, is_pipe, json_path);
 
         Integer::apply<Functor,Parameter> (kmerSize, params);
 
     }
-
-
 
 
     template<size_t span>
