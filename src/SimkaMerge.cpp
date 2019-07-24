@@ -378,15 +378,20 @@ public:
 	}
 
 	void execute(){
+	    //Alexandre
         _output_matrix = p.f_matrix;
         _is_pipe = p.is_pipe;
         _output_dir_m = p.d_matrix;
         _nbCores = p.nbCores;
+
         _json_file = p.json_path;
-        std::ifstream ifs(_json_file);
-        json _j_groups;
-        ifs >> _j_groups;
         bool _groups = (_json_file != "None");
+        json _j_groups;
+        if (_groups)
+        {
+            std::ifstream ifs(_json_file);
+            ifs >> _j_groups;
+        }
 
 		//removeStorage(p);
 
@@ -407,7 +412,7 @@ public:
             const std::string matrix_part = _output_dir_m + "/" + Stringify::format("%i", _partitionId) + ".gz";
             matrix_file.open(matrix_part.c_str());
         }
-
+        //Alexandre
 		createDatasetIdList(p);
 		_nbBanks = _datasetIds.size();
 
@@ -545,19 +550,17 @@ public:
 					if(bestIt->value()!=previous_kmer )
 					{
 						insert(previous_kmer, abundancePerBank, nbBankThatHaveKmer);
-                        //if ( !m_line.empty() )
-                        //{
-                            if ( _is_pipe )
-                            {
-                                if (_groups) matrix_pipe << toMatrix(previous_kmer, abundancePerBank, _j_groups);
-                                else matrix_pipe << toMatrix (previous_kmer, abundancePerBank);
-                            }
-                            else
-                            {
-                                if (_groups) matrix_file << toMatrix(previous_kmer, abundancePerBank, _j_groups);
-                                else matrix_file << toMatrix (previous_kmer, abundancePerBank);
-                            }
-                        //}
+						//alexandre
+						if ( _is_pipe )
+                        {
+                            if (_groups) matrix_pipe << toMatrix(previous_kmer, abundancePerBank, _j_groups);
+                            else matrix_pipe << toMatrix (previous_kmer, abundancePerBank);
+                        }
+                        else
+                        {
+                            if (_groups) matrix_file << toMatrix(previous_kmer, abundancePerBank, _j_groups);
+                            else matrix_file << toMatrix (previous_kmer, abundancePerBank);
+                        }
 
 						solidCounter->init (bestIt->getBankId(), bestIt->abundance());
 						nbBankThatHaveKmer = 1;
@@ -577,19 +580,17 @@ public:
 			}
 
 			insert(previous_kmer, abundancePerBank, nbBankThatHaveKmer);
-            //if ( !m_line.empty() )
-            //{
-                if ( _is_pipe )
-                {
-                    if (_groups) matrix_pipe << toMatrix(previous_kmer, abundancePerBank, _j_groups);
-                    else matrix_pipe << toMatrix (previous_kmer, abundancePerBank);
-                }
-                else
-                {
-                    if (_groups) matrix_file << toMatrix(previous_kmer, abundancePerBank, _j_groups);
-                    else matrix_file << toMatrix (previous_kmer, abundancePerBank);
-                }
-            //}
+			//Alexandre
+            if ( _is_pipe )
+            {
+                if (_groups) matrix_pipe << toMatrix(previous_kmer, abundancePerBank, _j_groups);
+                else matrix_pipe << toMatrix (previous_kmer, abundancePerBank);
+            }
+            else
+            {
+                if (_groups) matrix_file << toMatrix(previous_kmer, abundancePerBank, _j_groups);
+                else matrix_file << toMatrix (previous_kmer, abundancePerBank);
+            }
         }
 
 
@@ -612,7 +613,7 @@ public:
 
 		writeFinishSignal(p);
 	}
-
+    //Alexandre
 	void insert(const Type& kmer, const CountVector& counts, size_t nbBankThatHaveKmer)
     {
 		_stats->_nbDistinctKmers += 1;
@@ -632,6 +633,7 @@ public:
 
         keep:
             new_line += kmer.toString(_kmerSize);
+            new_line += " ";
             for ( auto& i : counts )
             {
                 if (i) new_line += "1";
@@ -644,12 +646,14 @@ public:
     std::string toMatrix (const Type& kmer, const CountVector& counts, const json& groups)
     {
 	    std::string new_line(kmer.toString(_kmerSize));
+	    new_line += " ";
 	    for (int i=0; i<counts.size(); i++)
         {
 	        if (counts[i] == 0) new_line += "0";
 	        else if (counts[i] > 1) new_line += "1";
 	        else if (counts[i] == 1)
             {
+	            std::cout << "enter" << std::endl;
 	            bool in_grp = check_group(counts, groups, i);
 	            if (in_grp)
                 {
@@ -665,16 +669,16 @@ public:
 
     bool check_group(const CountVector& counts, const json& groups, const int& exp)
     {
-	    auto l_groups = groups[exp];
+	    auto l_groups = groups[std::to_string(exp)];
 	    int sum_in_group = 0;
 	    for ( auto& pos : l_groups )
         {
-	        sum_in_group += pos.get<int>();
+	        sum_in_group += counts[pos.get<int>()];
 	        if ( sum_in_group > 1 ) return true;
         }
 	    return false;
     }
-
+    //Alexandre
     void createDatasetIdList(Parameter& p)
     {
 
@@ -768,9 +772,9 @@ public:
         getParser()->push_back (new OptionOneParam ("-max-memory",   "bank name", true));
         getParser()->push_back (new OptionOneParam (STR_SIMKA_MIN_KMER_SHANNON_INDEX,   "bank name", true));
         getParser()->push_back (new OptionOneParam ("-matrix", "output matrix", true));
-        getParser()->push_back (new OptionOneParam ("-dir-matrix", "dir output matrix", true));
+        getParser()->push_back (new OptionOneParam ("-dir-matrix", "dir output matrix", false, "./simka_results"));
         getParser()->push_back (new OptionOneParam ("-pipe", "if pipe", false, "false"));
-        getParser()->push_back (new OptionOneParam ("-groups", "json file", true));
+        getParser()->push_back (new OptionOneParam ("-groups", "json file", false, "None"));
 
         getParser()->push_back (new OptionNoParam (STR_SIMKA_COMPUTE_ALL_SIMPLE_DISTANCES.c_str(), "compute simple distances"));
         getParser()->push_back (new OptionNoParam (STR_SIMKA_COMPUTE_ALL_COMPLEX_DISTANCES.c_str(), "compute complex distances"));

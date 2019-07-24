@@ -11,6 +11,10 @@ git submodule update
 rm -rf build
 mkdir  build
 
+cd thirdparty/gzstream
+make
+cd ../..
+
 # Go in the 'build' directory
 cd build
 
