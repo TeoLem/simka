@@ -748,6 +748,7 @@ public:
 				command += " " + string(STR_NB_CORES) + " " + SimkaAlgorithm<>::toString(_coresPerMergeJob);
 				command += " " + string(STR_SIMKA_MIN_KMER_SHANNON_INDEX) + " " + Stringify::format("%f", this->_minKmerShannonIndex);
 				command += " -verbose " + Stringify::format("%d", this->_options->getInt(STR_VERBOSE));
+                command += " -dir-matrix " + this->_outputDir;
                 command += " -matrix " + this->_output_m;
                 command += " -groups " + this->_json_path;
                 if(this->_pipe) command += " -pipe true";
