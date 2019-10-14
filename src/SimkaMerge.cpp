@@ -613,10 +613,10 @@ public:
 
 		writeFinishSignal(p);
 	}
-    //Alexandre
-	void insert(const Type& kmer, const CountVector& counts, size_t nbBankThatHaveKmer)
+	
+    void insert(const Type& kmer, const CountVector& counts, size_t nbBankThatHaveKmer)
     {
-		_stats->_nbDistinctKmers += 1;
+		//_stats->_nbDistinctKmers += 1;
         if ( nbBankThatHaveKmer > 1 ) { _stats->_nbSharedKmers += 1; }
 	}
 
@@ -632,6 +632,7 @@ public:
         return new_line;
 
         keep:
+            _stats->_nbDistinctKmers += 1;
             new_line += kmer.toString(_kmerSize);
             new_line += " ";
             for ( auto& i : counts )
@@ -647,21 +648,29 @@ public:
     {
 	    std::string new_line(kmer.toString(_kmerSize));
 	    new_line += " ";
+        bool keep_kmers = false;
 	    for (int i=0; i<counts.size(); i++)
         {
 	        if (counts[i] == 0) new_line += "0";
-	        else if (counts[i] > 1) new_line += "1";
+	        else if (counts[i] > 1)
+            {
+                new_line += "1";
+                keep_kmers = true;
+            }
 	        else if (counts[i] == 1)
             {
 	            std::cout << "enter" << std::endl;
 	            bool in_grp = check_group(counts, groups, i);
 	            if (in_grp)
                 {
+                    keep_kmers = true;
 	                new_line += "1";
                 }
 	            else new_line += "0";
             }
         }
+
+        if (keep_kmers) _stats->_nbDistinctKmers += 1;
 
 	    new_line += "\n";
 	    return new_line;
